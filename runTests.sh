@@ -28,7 +28,7 @@ callEveryTest() {
         )
 
         failedTestReturned=$?
-        if [ $failedTestReturned > 0 ]; then
+        if [[ $failedTestReturned > 0 ]]; then
             ((FAILING_TESTS+=$failedTestReturned))
         fi
     done
@@ -69,6 +69,17 @@ fail() {
 
     ((FAILING_TESTS_IN_FILE++))
     # exit 1
+}
+
+assertEquals() {
+    if [[ $1 != $2 ]]; then
+        maxSizeForMultiline=30
+        if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
+            fail "expected: '$1'\n    got:      '$2'"
+        else
+            fail "expected '$1', got '$2'"
+        fi
+    fi
 }
 
 log() {
