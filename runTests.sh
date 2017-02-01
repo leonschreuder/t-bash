@@ -36,6 +36,7 @@ callEveryTest() {
     if [[ $FAILING_TESTS > 0 ]]; then
         echo $FAILING_TESTS failing tests in $TEST_FILE_COUNT files
         echo TEST SUITE FAILED
+        exit 1
     else
         echo suite successfull
     fi
@@ -53,8 +54,16 @@ callIfExists() {
 callTest() {
     testFunc=$1
     log "  $testFunc"
+
     callIfExists setup
-    eval $testFunc
+
+    if [[ $TIME_FUNCS ]]; then
+        echo
+        echo "$testFunc"
+        eval "time -p $testFunc"
+    else
+        eval $testFunc
+    fi
 
     if [ $? != 0 ]; then
         ((FAILING_TESTS_IN_FILE++))
@@ -63,21 +72,25 @@ callTest() {
 }
 
 fail() {
-    echo "FAIL: ${FUNCNAME[1]} >"
-    printf "    $1\n" #we use printf so we can format the fail string
+    failFromStackDepth 1 "$1"
+}
+
+# allows specifyng the call-stack depth at which the error was thrown
+failFromStackDepth() {
+    printf "FAIL: $test_file(${BASH_LINENO[$1-1]}) > ${FUNCNAME[$1]}\n"
+    printf "    $2\n"
     callIfExists teardown
 
     ((FAILING_TESTS_IN_FILE++))
-    # exit 1
 }
 
 assertEquals() {
     if [[ $1 != $2 ]]; then
         maxSizeForMultiline=30
         if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
-            fail "expected: '$1'\n    got:      '$2'"
+            failFromStackDepth 2 "expected: '$1'\n    got:      '$2'"
         else
-            fail "expected '$1', got '$2'"
+            failFromStackDepth 2 "expected '$1', got '$2'"
         fi
     fi
 }
@@ -106,7 +119,7 @@ usage() {
 #============================================================
 
 # adding : behind the command will require arguments
-while getopts "vha" opt; do
+while getopts "vhat" opt; do
     case $opt in
         h)
             usage
@@ -116,6 +129,9 @@ while getopts "vha" opt; do
             ;;
         a)
             export RUN_LARGE_TESTS=true
+            ;;
+        t)
+            export TIME_FUNCS=true
             ;;
         *)
             usage
