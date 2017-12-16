@@ -12,6 +12,8 @@ Currently only supports 'assertEquals' test, all other cases can be tested
 using simple if statements and the 'fail' method.
 
 Usage:
+./runTests.sh [-hvatm] [test_files...]
+
 -h                Print this help
 -v                verbose
 -a                Run all tests, including those prefixed with testLarge_
@@ -36,7 +38,7 @@ main() {
         export RUN_LARGE_TESTS=true
         ;;
       t)
-        export TIME_FUNCS=true
+        export TIMED=true
         ;;
       m)
         export MATCH="$OPTARG"
@@ -47,39 +49,23 @@ main() {
     esac
   done
 
-  callEveryTest
-}
+  shift "$((OPTIND - 1))"
+  if [[ "$@" != "" ]]; then
+    TEST_FILES=($@)
+  else
+    TEST_FILES=($(echo ./test_*))
+  fi
 
-callEveryTest() {
-  TEST_FILE_COUNT=0
+  TEST_FILE_COUNT=${#TEST_FILES[@]}
   FAILING_TESTS=0
 
-  for test_file in ./test_*; do
-    log "running $test_file"
-    ((TEST_FILE_COUNT++))
+  for test_file in ${TEST_FILES[@]}; do
+    logv "running $test_file"
 
-    # Load the test files in a sub-shell, to prevent redefinition problems
-    (
-      source $test_file
-
-      for currFunc in `compgen -A function`
-      do
-        if [[ $currFunc == "test_"* ]]; then
-          callTest $currFunc
-        elif [[ $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]]; then
-          callTest $currFunc
-        fi
-      done
-
-      # since we dont have access to the outer shell, let the return
-      # code be the error count.
-      exit $FAILING_TESTS_IN_FILE
-    )
-
-    failedTestReturned=$?
-    if [[ $failedTestReturned > 0 ]]; then
-      ((FAILING_TESTS+=$failedTestReturned))
-    fi
+    # Load the test files in a sub-shell, to prevent overwriting functions
+    # between files (mainly setup & teardown)
+    (callTestsInFile $test_file)
+    ((FAILING_TESTS+=$?)) # Will be 0 if no tests failed.
   done
 
   if [[ $FAILING_TESTS > 0 ]]; then
@@ -91,34 +77,48 @@ callEveryTest() {
   fi
 }
 
+callTestsInFile() {
+  source $1
+
+  for currFunc in $(compgen -A function); do
+    if [[ $currFunc == "test_"* ]]; then
+      callTest $currFunc
+    elif [[ $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]]; then
+      callTest $currFunc
+    fi
+  done
+
+  # since we want to be able to use echo in the tests, but are also in a
+  # sub-shell so we can't set variables, we use the exit-code to return the
+  # number of failing tests.
+  exit $FAILING_TEST_COUNT
+}
+
 # Helper functions
+
+callTest() {
+  testFunc=$1
+  if [[ -z "$MATCH" || $testFunc == $MATCH ]]; then
+    logv "  $testFunc"
+
+    callIfExists setup
+
+    if [[ "$TIMED" == "true" ]]; then
+      [[ "$VERBOSE" != "true" ]] && echo "$testFunc"
+      eval "time -p $testFunc"
+      echo
+    else
+      eval $testFunc
+    fi
+
+    callIfExists teardown
+  fi
+}
 
 callIfExists() {
   declare -F -f $1 > /dev/null
   if [ $? == 0 ]; then
     $1
-  fi
-}
-
-callTest() {
-  testFunc=$1
-  if [[ -z "$MATCH" || $testFunc == $MATCH ]]; then
-    log "  $testFunc"
-
-    callIfExists setup
-
-    if [[ $TIME_FUNCS ]]; then
-      echo
-      echo "$testFunc"
-      eval "time -p $testFunc"
-    else
-      eval $testFunc
-    fi
-
-    if [ $? != 0 ]; then
-      ((FAILING_TESTS_IN_FILE++))
-    fi
-    callIfExists teardown
   fi
 }
 
@@ -128,10 +128,10 @@ failFromStackDepth() {
   printf "    $2\n"
   callIfExists teardown
 
-  ((FAILING_TESTS_IN_FILE++))
+  ((FAILING_TEST_COUNT++))
 }
 
-log() {
+logv() {
   if [ $VERBOSE ]; then
     echo "$1"
   fi
@@ -141,12 +141,12 @@ log() {
 #--------------------------------------------------------------------------------
 
 assertEquals() {
-  if [[ $2 != $1 ]]; then
+  if [[ "$2" != "$1" ]]; then
     maxSizeForMultiline=30
     if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
       failFromStackDepth 2 "expected: '$1'\n    got:      '$2'"
     else
-      failFromStackDepth 2 "expected '$1', got '$2'"
+      failFromStackDepth 2 "expected: '$1', got: '$2'"
     fi
   fi
 }
