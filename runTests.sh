@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
+
 usage() {
 cat << EOF
 T-Bash   v0.3
@@ -19,6 +21,7 @@ Usage:
 -a                Run all tests, including those prefixed with testLarge_
 -t                Prints how long each test took
 -m [testmatcher]  Runs only the tests that match the string (bash matches supported)
+-u                Execute a self-update
 EOF
 exit
 }
@@ -26,7 +29,7 @@ exit
 main() {
 
   # adding : behind the command will require arguments
-  while getopts "vhatm:" opt; do
+  while getopts "vhatm:u" opt; do
     case $opt in
       h)
         usage
@@ -42,6 +45,10 @@ main() {
         ;;
       m)
         export MATCH="$OPTARG"
+        ;;
+      u)
+        runSelfUpdate
+        exit
         ;;
       *)
         usage
@@ -135,6 +142,43 @@ logv() {
   if [ $VERBOSE ]; then
     echo "$1"
   fi
+}
+
+runSelfUpdate() {
+  # Tnx: https://stackoverflow.com/q/8595751/3968618
+  echo "Performing self-update..."
+
+  echo "Downloading latest version..."
+  curl $SELF_UPDATE_URL -o $0.tmp
+  if [[ $? != 0 ]]; then
+    >&2 echo "Update failed: Error downloading."
+    exit 1
+  fi
+
+  # Copy over modes from old version
+  filePermissions=$(stat -c '%a' $0 2> /dev/null)
+  if [[ $? != 0 ]]; then
+    filePermissions=$(stat -f '%A' $0)
+  fi
+  if ! chmod $filePermissions "$0.tmp" ; then
+    >&2 echo "Update failed: Error setting access-rights on $0.tmp"
+    exit 1
+  fi
+
+  cat > selfUpdateScript.sh << EOF
+#!/usr/bin/env bash
+# Overwrite script with updated version
+if mv "$0.tmp" "$0"; then
+  echo "Done."
+  rm \$0
+  echo "Update complete."
+else
+  echo "Failed to overwrite script with updated version!"
+fi
+EOF
+
+  echo -n "Overwriting old version..."
+  exec /bin/bash selfUpdateScript.sh
 }
 
 # Asserts:
