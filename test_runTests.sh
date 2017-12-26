@@ -98,15 +98,6 @@ test__should_print_time_when_required() (
   assertEquals "$(echo -e "mock_function\nmock_function called\nreal 0.00\nuser 0.00\nsys 0.00" )" "$result"
 )
 
-test__should_get_all_files() {
-  touch test_dummy
-
-  result=($(getTestFiles))
-
-  assertEquals 2 "${#result[@]}"
-  rm test_dummy
-}
-
 
 
 # HELPERS
