@@ -4,7 +4,7 @@ SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTest
 
 usage() {
 cat << EOF
-T-Bash   v0.4
+T-Bash   v0.4.1
 A tiny bash testing framework.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes
@@ -91,17 +91,17 @@ callTestsInFile() {
   [[ ! $VERBOSE ]] && initDotLine
 
   for currFunc in $(compgen -A function); do
-    local output
-    ((finishedTestCount+=1))
     if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]]; then
+      local output
+      ((finishedTestCount+=1))
       [[ ! $VERBOSE ]] && updateDotLine
 
       output=$(callTest $currFunc 2>&1)
-    fi
 
-    if [[ -n $output ]]; then
-      (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
-      echo -e "$output"
+      if [[ -n $output ]]; then
+        (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
+        echo -e "$output"
+      fi
     fi
   done
 
@@ -119,7 +119,7 @@ initDotLine() {
 updateDotLine() {
   tput cuu $_PRINTED_LINE_COUNT # move the cursor up to the dot-line
   echo -ne "\r" # go to the start of the line
-  printf "%0.s." $(seq 0 $finishedTestCount) # print as may dots as tests that have run
+  printf "%0.s." $(seq 1 $finishedTestCount) # print as may dots as tests that have run
   tput cud $_PRINTED_LINE_COUNT # move the cursor back down.
   echo -ne "\r" # go to the start of the line again
 }
