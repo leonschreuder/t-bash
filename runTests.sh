@@ -95,8 +95,9 @@ callTestsInFile() {
       local output
       ((finishedTestCount+=1))
       [[ ! $VERBOSE ]] && updateDotLine
-
       output=$(callTest $currFunc 2>&1)
+
+      ((FAILING_TEST_COUNT+=$?))
 
       if [[ -n $output ]]; then
         (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
@@ -167,7 +168,7 @@ failFromStackDepth() {
   printf "    $2\n"
   callIfExists teardown
 
-  ((FAILING_TEST_COUNT++))
+  exit 1
 }
 
 logv() {
