@@ -10,12 +10,14 @@ setup() {
   unset MATCH
     # You should normally load the script under test
     #source ./runTests.sh
+  mkdir -p ./tmp
 }
 
 teardown() {
   VERBOSE=$_REAL_VERBOSE
   TIMED=$_REAL_TIMED
   MATCH=$_REAL_MATCH
+  rm -rf ./tmp
 }
 
 test_logger_should_only_log_when_verbose() {
@@ -98,6 +100,89 @@ test__should_print_time_when_required() (
   assertEquals "$(echo -e "mock_function\nmock_function called\nreal 0.00\nuser 0.00\nsys 0.00" )" "$result"
 )
 
+testLarge__should_run_basic_test() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() {
+  :
+}
+EOF
+  (cd tmp; ./runTests.sh > result.log)
+  assertEquals "$(cat << EOF
+
+[1A.[1Bsuite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+testLarge__should_run_basic_test_verbose() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { :; }
+EOF
+  (cd tmp; ./runTests.sh -v > result.log)
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  test_t1
+suite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+testLarge__should_run_multiple_tests() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh > result.log)
+
+  assertEquals "$(cat << EOF
+
+[1A.[1B[1A..[1B[1A...[1Bsuite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+testLarge__should_run_multiple_tests_verbose() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh -v > result.log)
+
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  test_t1
+  test_t2
+  test_t3
+suite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+
+testLarge__should_fail_suite_on_failing_test() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { fail "error-message"; }
+EOF
+  (cd tmp; ./runTests.sh -v > result.log)
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  test_t1
+FAIL: ./test_test.sh(1) > test_t1
+    error-message
+1 failing tests in 1 files
+TEST SUITE FAILED
+EOF
+  )" "$(cat tmp/result.log)"
+}
 
 
 # HELPERS
