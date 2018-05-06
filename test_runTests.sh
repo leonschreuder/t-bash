@@ -74,19 +74,20 @@ test__should_call_setup_and_teardown() (
 )
 
 test__when_matching_should_call_matching_test() (
-  mock_function() { echo "mock_function called"; }
+  test_mock_function() { echo "mock_function called"; }
+  VERBOSE=true
 
   MATCH="*ock_func*"
-  result="$(callTest "mock_function")"
+  result="$(callFuncIfTest "test_mock_function")"
 
-  assertEquals "mock_function called" "$result"
+  assertEquals "$(echo -e "  test_mock_function\nmock_function called")" "$result"
 )
 
 test__when_matching_should_not_call_non_matching_test() (
-  mock_function() { echo "mock_function called"; }
+  test_mock_function() { echo "mock_function called"; }
 
   MATCH="*testDouble*"
-  result="$(callTest "mock_function")"
+  result="$(callFuncIfTest "mock_function")"
 
   assertEquals "" "$result"
 )
@@ -180,6 +181,41 @@ FAIL: ./test_test.sh(1) > test_t1
     error-message
 1 failing tests in 1 files
 TEST SUITE FAILED
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+testLarge__should_respect_matcher() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh -vm test_t2 > result.log)
+
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  test_t2
+suite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+testLarge__should_respect_matcher_on_verbose_output() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh -m test_t2 > result.log)
+
+  assertEquals "$(cat << EOF
+
+[1A.[1Bsuite successfull
 EOF
   )" "$(cat tmp/result.log)"
 }

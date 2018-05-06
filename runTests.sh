@@ -87,23 +87,11 @@ main() {
 callTestsInFile() {
   source $1
 
-  finishedTestCount=0
+  testCount=0
   [[ ! $VERBOSE ]] && initDotLine
 
   for currFunc in $(compgen -A function); do
-    if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]]; then
-      local output
-      ((finishedTestCount+=1))
-      [[ ! $VERBOSE ]] && updateDotLine
-      output=$(callTest $currFunc 2>&1)
-
-      ((FAILING_TEST_COUNT+=$?))
-
-      if [[ -n $output ]]; then
-        (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
-        echo -e "$output"
-      fi
-    fi
+    callFuncIfTest $currFunc
   done
 
   # since we want to be able to use echo in the tests, but are also in a
@@ -112,38 +100,57 @@ callTestsInFile() {
   exit $FAILING_TEST_COUNT
 }
 
-initDotLine() {
-  echo "" # start with a blank line to print the dots on
-  _PRINTED_LINE_COUNT=1 # Tracks how many lines have been printed since the dot-line, so we know where it is.
+# Calls supplied function if it is a test, but also counts + handles test output
+callFuncIfTest() {
+  currFunc="$1"
+  if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]] &&
+    [[ -z ${MATCH+x} || $currFunc == $MATCH ]]; then
+
+    local output
+    ((testCount+=1))
+    [[ ! $VERBOSE ]] && updateDotLine
+
+    output=$(callTest $currFunc 2>&1)
+
+    ((FAILING_TEST_COUNT+=$?))
+
+    if [[ -n $output ]]; then
+      (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
+      echo -e "$output"
+    fi
+  fi
 }
 
+# We have to do some magic to print a dot for every test, but still print any test output correctly.
+initDotLine() {
+  echo "" # start with a blank line onto which we can print the dots.
+  _PRINTED_LINE_COUNT=1 # Tracks how many lines have been printed since the dot-line, so we know how many lines we have to go up to print more dots.
+}
+
+# Add a dot to the dot line, and jump back down to where we where
 updateDotLine() {
   tput cuu $_PRINTED_LINE_COUNT # move the cursor up to the dot-line
   echo -ne "\r" # go to the start of the line
-  printf "%0.s." $(seq 1 $finishedTestCount) # print as may dots as tests that have run
-  tput cud $_PRINTED_LINE_COUNT # move the cursor back down.
-  echo -ne "\r" # go to the start of the line again
+  printf "%0.s." $(seq 1 $testCount) # print a dot for every test that has run, overwriting previous dots
+  tput cud $_PRINTED_LINE_COUNT # move the cursor back down to where we where
+  echo -ne "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
 }
 
-# Helper functions
-
 callTest() {
-  testFunc=$1
-  if [[ -z "$MATCH" || $testFunc == $MATCH ]]; then
-    logv "  $testFunc"
+  testFunc="$1"
+  logv "  $testFunc"
 
-    callIfExists setup
+  callIfExists setup
 
-    if [[ "$TIMED" == "true" ]]; then
-      [[ "$VERBOSE" != "true" ]] && echo "$testFunc"
-      eval "time -p $testFunc"
-      echo
-    else
-      eval $testFunc
-    fi
-
-    callIfExists teardown
+  if [[ "$TIMED" == "true" ]]; then
+    [[ "$VERBOSE" != "true" ]] && echo "$testFunc"
+    eval "time -p $testFunc"
+    echo
+  else
+    eval $testFunc
   fi
+
+  callIfExists teardown
 }
 
 callIfExists() {
