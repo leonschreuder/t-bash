@@ -4,7 +4,7 @@ SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTest
 
 usage() {
 cat << EOF
-T-Bash   v0.4.1
+T-Bash   v0.4.2
 A tiny bash testing framework.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes
@@ -87,12 +87,19 @@ main() {
 callTestsInFile() {
   source $1
 
-  testCount=0
+  # If you find yourself testing slow or state-based stuff like buildscripts, 'fileSetup' might come in handy.
+  callIfExistsFormatted "fileSetup"
+  [[ $? != 0 ]] && echo "FAIL: fileSetup failed." && exit $(getTestFuncs | wc -l)
+
+  testCount=0   # Counting the dots
   [[ ! $VERBOSE ]] && initDotLine
 
-  for currFunc in $(compgen -A function); do
-    callFuncIfTest $currFunc
+  for currTest in $(getTestFuncs); do
+    callFuncIfTest $currTest
   done
+
+  callIfExistsFormatted "fileTeardown"
+  [[ $? != 0 ]] && echo "FAIL: fileTeardown failed." && exit $(getTestFuncs | wc -l)
 
   # since we want to be able to use echo in the tests, but are also in a
   # sub-shell so we can't set variables, we use the exit-code to return the
@@ -103,13 +110,15 @@ callTestsInFile() {
 # Calls supplied function if it is a test, but also counts + handles test output
 callFuncIfTest() {
   currFunc="$1"
-  if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]] &&
-    [[ -z ${MATCH+x} || $currFunc == $MATCH ]]; then
 
-    local output
-    ((testCount+=1))
-    [[ ! $VERBOSE ]] && updateDotLine
+  local output
+  ((testCount+=1))
 
+  if [[ ! $VERBOSE ]]; then
+    # Do some fancy log capturing to make the dotlines work.
+    updateDotLine
+
+    logv "  $currFunc"
     output=$(callTest $currFunc 2>&1)
 
     ((FAILING_TEST_COUNT+=$?))
@@ -118,6 +127,53 @@ callFuncIfTest() {
       (( _PRINTED_LINE_COUNT+=$(echo -e "$output" | wc -l) ))
       echo -e "$output"
     fi
+  else
+    logv "  $currFunc"
+    (callTest $currFunc 2>&1) # Subshell to prevent changing directories or variables from influencing other tests
+    ((FAILING_TEST_COUNT+=$?))
+  fi
+}
+
+getTestFuncs() {
+  for currFunc in $(compgen -A function); do
+    if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]] &&
+      [[ -z ${MATCH+x} || $currFunc == $MATCH ]]; then
+      echo "$currFunc"
+    fi
+  done
+}
+
+callTest() {
+  callIfExists setup
+
+  callFuncFormatted "$1"
+
+  callIfExists teardown
+}
+
+callFuncFormatted() {
+  func="$1"
+  if [[ "$TIMED" == "true" ]]; then
+    [[ "$VERBOSE" != "true" ]] && echo "$func"
+    time -p $func
+    echo # extra line to make the output more readable
+  else
+    $func
+  fi
+}
+
+callIfExists() {
+  declare -F -f $1 > /dev/null
+  if [ $? == 0 ]; then
+    $1
+  fi
+}
+
+callIfExistsFormatted() {
+  declare -F -f $1 > /dev/null
+  if [ $? == 0 ]; then
+    logv "  $1"
+    callFuncFormatted "$1"
   fi
 }
 
@@ -134,30 +190,6 @@ updateDotLine() {
   printf "%0.s." $(seq 1 $testCount) # print a dot for every test that has run, overwriting previous dots
   tput cud $_PRINTED_LINE_COUNT # move the cursor back down to where we where
   echo -ne "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
-}
-
-callTest() {
-  testFunc="$1"
-  logv "  $testFunc"
-
-  callIfExists setup
-
-  if [[ "$TIMED" == "true" ]]; then
-    [[ "$VERBOSE" != "true" ]] && echo "$testFunc"
-    eval "time -p $testFunc"
-    echo
-  else
-    eval $testFunc
-  fi
-
-  callIfExists teardown
-}
-
-callIfExists() {
-  declare -F -f $1 > /dev/null
-  if [ $? == 0 ]; then
-    $1
-  fi
 }
 
 failUnexpected() {
@@ -233,6 +265,18 @@ assertEquals() {
 assertMatches() {
   if [[ "$2" != $1 ]]; then
     failUnexpected "$1" "$2"
+  fi
+}
+
+assertFileContains() {
+  [[ "$1" == "!" ]] && invert='true' && shift
+  matcher="$1"
+  file="$2"
+  [[ ! -e "$file" ]] && failFromStackDepth 2 "File '$file' doesn't exist"
+  if [[ "$invert" != "true" ]]; then
+    grep -q "$matcher" "$file" || failFromStackDepth 2 "Expected file '$file' contents to match (grep):\n    '$matcher'"
+  else
+    grep -q "$matcher" "$file" && failFromStackDepth 2 "Expected file '$file' contents to NOT match (grep):\n    '$matcher'"
   fi
 }
 
