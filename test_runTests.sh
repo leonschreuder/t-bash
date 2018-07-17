@@ -73,6 +73,52 @@ test__should_call_setup_and_teardown() (
   assertEquals "$( echo -e "setup called\nmock_function called\nteardown called")" "$result"
 )
 
+test__should_call_suiteSetup_and_stuiteTeardown() (
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+fileSetup() { :; }
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+fileTeardown() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh -v > result.log)
+
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  fileSetup
+  test_t1
+  test_t2
+  test_t3
+  fileTeardown
+suite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+)
+
+test__suiteSetup_should_fail_all_tests() (
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+fileSetup() { return 3; }
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+fileTeardown() { :; }
+EOF
+
+  (cd tmp; ./runTests.sh -v > result.log)
+
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  fileSetup
+FAIL: fileSetup failed.
+3 failing tests in 1 files
+TEST SUITE FAILED
+EOF
+  )" "$(cat tmp/result.log)"
+)
+
 test__when_matching_should_call_matching_test() (
   test_mock_function() { echo "mock_function called"; }
   VERBOSE=true
@@ -83,13 +129,12 @@ test__when_matching_should_call_matching_test() (
   assertEquals "$(echo -e "  test_mock_function\nmock_function called")" "$result"
 )
 
-test__when_matching_should_not_call_non_matching_test() (
+test__when_has_match_should_not_get_non_matching_test() (
   test_mock_function() { echo "mock_function called"; }
 
   MATCH="*testDouble*"
-  result="$(callFuncIfTest "mock_function")"
 
-  assertEquals "" "$result"
+  assertEquals "" "$(getTestFuncs)"
 )
 
 test__should_print_time_when_required() (
@@ -180,6 +225,32 @@ running ./test_test.sh
 FAIL: ./test_test.sh(1) > test_t1
     error-message
 1 failing tests in 1 files
+TEST SUITE FAILED
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
+
+testLarge__should_fail_suite_for_multiple_failing_tests() {
+  cp ./runTests.sh ./tmp/
+cat << EOF >> ./tmp/test_test.sh
+test_t1() { fail "error-message"; }
+test_t2() { fail "error-message"; }
+test_t3() { fail "error-message"; }
+EOF
+  (cd tmp; ./runTests.sh -v > result.log)
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+  test_t1
+FAIL: ./test_test.sh(1) > test_t1
+    error-message
+  test_t2
+FAIL: ./test_test.sh(2) > test_t2
+    error-message
+  test_t3
+FAIL: ./test_test.sh(3) > test_t3
+    error-message
+3 failing tests in 1 files
 TEST SUITE FAILED
 EOF
   )" "$(cat tmp/result.log)"
