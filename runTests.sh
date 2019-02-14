@@ -28,6 +28,7 @@ Usage:
 
 -h                Print this help
 -v                verbose
+-e                Extended diff. Prints unified / colored diff
 -a                Run all tests, including those prefixed with testLarge_
 -t                Prints how long each test took
 -m [testmatcher]  Runs only the tests that match the string (bash matches supported)
@@ -39,13 +40,16 @@ exit
 main() {
 
   # adding : behind the command will require arguments
-  while getopts "vhatm:u" opt; do
+  while getopts "vhaetm:u" opt; do
     case $opt in
       h)
         usage
         ;;
       v)
         export VERBOSE=true
+        ;;
+      e)
+        export EXTENDED_DIFF=true
         ;;
       a)
         export RUN_LARGE_TESTS=true
@@ -219,12 +223,17 @@ updateDotLine() {
 failUnexpected() {
     maxSizeForMultiline=30
 
-    if hash wdiff; then
-      if hash colordiff; then
-        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2") | colordiff)"
+    if [[ -n ${EXTENDED_DIFF+x} ]]; then
+      if hash wdiff; then
+        if hash colordiff; then
+          failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2") | colordiff)"
+        else
+          failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2"))"
+        fi
       else
-        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2"))"
+        exitWithError "No extended diff-tool found. Supports 'wdiff' with optional 'colordiff'."
       fi
+      echo
     else
       if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
         failFromStackDepth 3 "expected: '$(echo "$1" | cat -v )'\n    got:      '$(echo "$2" | cat -v )'"
@@ -256,8 +265,7 @@ runSelfUpdate() {
   echo "Downloading latest version..."
   curl $SELF_UPDATE_URL -o $0.tmp
   if [[ $? != 0 ]]; then
-    >&2 echo "Update failed: Error downloading."
-    exit 1
+    exitWithError "Update failed: Error downloading."
   fi
 
   # Copy over modes from old version
@@ -266,8 +274,7 @@ runSelfUpdate() {
     filePermissions=$(stat -f '%A' $0)
   fi
   if ! chmod $filePermissions "$0.tmp" ; then
-    >&2 echo "Update failed: Error setting access-rights on $0.tmp"
-    exit 1
+    exitWithError "Update failed: Error setting access-rights on $0.tmp"
   fi
 
   cat > selfUpdateScript.sh << EOF
@@ -305,6 +312,11 @@ assertNotMatches() {
 
 fail() {
   failFromStackDepth 2 "$1"
+}
+
+exitWithError() {
+  >&2 echo -e "ERROR: $@"
+  exit 1
 }
 
 
