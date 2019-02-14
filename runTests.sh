@@ -218,10 +218,19 @@ updateDotLine() {
 
 failUnexpected() {
     maxSizeForMultiline=30
-    if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
-      failFromStackDepth 3 "expected: '$1'\n    got:      '$2'"
+
+    if hash wdiff; then
+      if hash colordiff; then
+        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2") | colordiff)"
+      else
+        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2"))"
+      fi
     else
-      failFromStackDepth 3 "expected: '$1', got: '$2'"
+      if [[ "${#1}" -gt $maxSizeForMultiline || ${#2} -gt $maxSizeForMultiline ]]; then
+        failFromStackDepth 3 "expected: '$(echo "$1" | cat -v )'\n    got:      '$(echo "$2" | cat -v )'"
+      else
+        failFromStackDepth 3 "expected: '$(echo "$1" | cat -v )', got: '$(echo "$2" | cat -v )'"
+      fi
     fi
 }
 
