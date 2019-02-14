@@ -5,6 +5,7 @@ SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTest
 #TODO: support logging some output with failing test.
 #TODO: print collored output with flag.
 #TODO: Add support for benchmark tests
+#TODO: error/log if no test found
 
 usage() {
 cat << EOF
@@ -140,9 +141,17 @@ callFuncIfTest() {
 
 getTestFuncs() {
   for currFunc in $(compgen -A function); do
-    if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]] &&
-      [[ -z ${MATCH+x} || $currFunc =~ $MATCH ]]; then
-      echo "$currFunc"
+    if [[ $currFunc == "test_"* || $currFunc == "testLarge_"* ]]; then #only consider test functions
+      if [[ -n ${MATCH+x} ]]; then
+        # when in matching mode, ignore other params
+        if [[ $currFunc =~ $MATCH ]]; then
+          echo "$currFunc"
+        fi
+      else
+        if [[ "$RUN_LARGE_TESTS" == "true" || $currFunc == "test_"* ]]; then
+          echo "$currFunc"
+        fi
+      fi
     fi
   done
 }

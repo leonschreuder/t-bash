@@ -3,11 +3,13 @@
 _REAL_VERBOSE=$VERBOSE
 _REAL_TIMED=$TIMED
 _REAL_MATCH=$MATCH
+_REAL_RUN_LARGE_TESTS=$RUN_LARGE_TESTS
 
 setup() {
   unset VERBOSE
   unset TIMED
   unset MATCH
+  unset RUN_LARGE_TESTS
     # You should normally load the script under test
     #source ./runTests.sh
   mkdir -p ./tmp
@@ -17,6 +19,7 @@ teardown() {
   VERBOSE=$_REAL_VERBOSE
   TIMED=$_REAL_TIMED
   MATCH=$_REAL_MATCH
+  RUN_LARGE_TESTS=$_REAL_RUN_LARGE_TESTS
   rm -rf ./tmp
 }
 
@@ -142,14 +145,44 @@ test__when_matching_should_call_matching_test() (
   assertEquals "$(echo -e "  test_mock_function\nmock_function called")" "$result"
 )
 
+test__getTestFuncs_should_only_get_matching_test() (
+  test_mock_some_function() { :; }
+  test_mock_other_function() { :; }
+  test_mock_matching_function() { :; }
+  testLarge_mock_other_function() { :; }
+
+  MATCH="mock_matching"
+
+  assertEquals "test_mock_matching_function" "$(getTestFuncs)" #carefull, getTestFuncs also returns the tests in this file
+)
+
 test__when_has_match_should_only_get_matching_test() (
   test_mock_some_function() { :; }
   test_mock_other_function() { :; }
   test_mock_matching_function() { :; }
+  testLarge_mock_other_function() { :; }
+  some_other_mock_matching_function() { :; }
 
   MATCH="mock_matching"
 
-  assertEquals "test_mock_matching_function" "$(getTestFuncs)" #carefull, includes test in this file
+  assertEquals "test_mock_matching_function" "$(getTestFuncs)" #carefull, getTestFuncs also returns the tests in this file
+)
+
+test__has_match_should_only_get_matching_test() (
+  compgen() { echo -e "test_mock_some_function\ntestLarge_mock_other_function" ;}
+  unset RUN_LARGE_TESTS
+
+  assertEquals "test_mock_some_function" "$(getTestFuncs)"
+)
+
+test__matcher_should_also_match_large_tests() (
+  test_mock_some_function() { :; }
+  testLarge_mock_other_function() { :; }
+  testLarge_mock_matching_function() { :; }
+
+  MATCH="mock_matching"
+
+  assertEquals "testLarge_mock_matching_function" "$(getTestFuncs)" #carefull, getTestFuncs also returns the tests in this file
 )
 
 test__should_print_time_when_required() (
