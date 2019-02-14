@@ -142,12 +142,14 @@ test__when_matching_should_call_matching_test() (
   assertEquals "$(echo -e "  test_mock_function\nmock_function called")" "$result"
 )
 
-test__when_has_match_should_not_get_non_matching_test() (
-  test_mock_function() { echo "mock_function called"; }
+test__when_has_match_should_only_get_matching_test() (
+  test_mock_some_function() { :; }
+  test_mock_other_function() { :; }
+  test_mock_matching_function() { :; }
 
-  MATCH="*testDouble*"
+  MATCH="mock_matching"
 
-  assertEquals "" "$(getTestFuncs)"
+  assertEquals "test_mock_matching_function" "$(getTestFuncs)" #carefull, includes test in this file
 )
 
 test__should_print_time_when_required() (

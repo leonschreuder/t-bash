@@ -3,7 +3,6 @@
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
 #TODO: support logging some output with failing test.
-#TODO: -m flag should use regex matcher also
 #TODO: print collored output with flag.
 #TODO: Add support for benchmark tests
 
@@ -142,7 +141,7 @@ callFuncIfTest() {
 getTestFuncs() {
   for currFunc in $(compgen -A function); do
     if [[ $currFunc == "test_"* || $RUN_LARGE_TESTS && $currFunc == "testLarge_"* ]] &&
-      [[ -z ${MATCH+x} || $currFunc == $MATCH ]]; then
+      [[ -z ${MATCH+x} || $currFunc =~ $MATCH ]]; then
       echo "$currFunc"
     fi
   done
