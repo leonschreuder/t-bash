@@ -2,6 +2,11 @@
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
+#TODO: support logging some output with failing test.
+#TODO: -m flag should use regex matcher also
+#TODO: print collored output with flag.
+#TODO: Add support for benchmark tests
+
 usage() {
 cat << EOF
 T-Bash   v0.4.2
@@ -263,21 +268,11 @@ assertEquals() {
 }
 
 assertMatches() {
-  if [[ "$2" != $1 ]]; then
-    failUnexpected "$1" "$2"
-  fi
+  [[ ! "$2" =~ $1 ]] && failFromStackDepth 2 "'$1' should have matched '$2'"
 }
 
-assertFileContains() {
-  [[ "$1" == "!" ]] && invert='true' && shift
-  matcher="$1"
-  file="$2"
-  [[ ! -e "$file" ]] && failFromStackDepth 2 "File '$file' doesn't exist"
-  if [[ "$invert" != "true" ]]; then
-    grep -q "$matcher" "$file" || failFromStackDepth 2 "Expected file '$file' contents to match (grep):\n    '$matcher'"
-  else
-    grep -q "$matcher" "$file" && failFromStackDepth 2 "Expected file '$file' contents to NOT match (grep):\n    '$matcher'"
-  fi
+assertNotMatches() {
+  [[ "$2" =~ $1 ]] && failFromStackDepth 2 "'$1' should not have matched '$2'"
 }
 
 fail() {
