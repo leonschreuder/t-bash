@@ -4,12 +4,14 @@ _REAL_VERBOSE=$VERBOSE
 _REAL_TIMED=$TIMED
 _REAL_MATCH=$MATCH
 _REAL_RUN_LARGE_TESTS=$RUN_LARGE_TESTS
+_REAL_EXTENDED_DIFF=$EXTENDED_DIFF
 
 setup() {
   unset VERBOSE
   unset TIMED
   unset MATCH
   unset RUN_LARGE_TESTS
+  unset EXTENDED_DIFF
     # You should normally load the script under test
     #source ./runTests.sh
   mkdir -p ./tmp
@@ -20,6 +22,7 @@ teardown() {
   TIMED=$_REAL_TIMED
   MATCH=$_REAL_MATCH
   RUN_LARGE_TESTS=$_REAL_RUN_LARGE_TESTS
+  EXTENDED_DIFF=$_REAL_EXTENDED_DIFF
   rm -rf ./tmp
 }
 
