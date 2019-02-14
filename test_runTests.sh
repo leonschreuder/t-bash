@@ -339,6 +339,20 @@ EOF
   )" "$(cat tmp/result.log)"
 }
 
+testLarge__should_warn_if_no_test_found() {
+  cp ./runTests.sh ./tmp/
+  touch ./tmp/test_test.sh
+
+  (cd tmp; ./runTests.sh -v > result.log)
+
+  assertEquals "$(cat << EOF
+running ./test_test.sh
+no tests found
+suite successfull
+EOF
+  )" "$(cat tmp/result.log)"
+}
+
 
 # HELPERS
 #--------------------------------------------------------------------------------
