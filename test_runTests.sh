@@ -44,6 +44,19 @@ test_assert_equals_should_print_fail_when_unequals() {
   assertEquals "$expected" "$result"
 }
 
+test_assert_matches_should_not_print_anything_when_matches() {
+  result=$(assertMatches "match" "fluf match fluf")
+  assertEquals "" "$result"
+
+  result=$(assertMatches ".*match.*" "fluf match fluf")
+  assertEquals "" "$result"
+}
+
+test_assert_matches_should_print_fail() {
+  result=$(assertMatches "somethingelse" "fluf match fluf")
+  assertMatches "FAIL:.*'somethingelse' should have matched 'fluf match fluf'" "$result"
+}
+
 test_fail_should_print_correctly() {
   assertLineNo=$(($LINENO+1))
   result=$(fail "Message")
