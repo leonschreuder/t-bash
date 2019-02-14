@@ -2,10 +2,8 @@
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
-#TODO: support logging some output with failing test.
 #TODO: print collored output with flag.
 #TODO: Add support for benchmark tests
-#TODO: error/log if no test found
 
 usage() {
 cat << EOF
@@ -99,7 +97,13 @@ callTestsInFile() {
   testCount=0   # Counting the dots
   [[ ! $VERBOSE ]] && initDotLine
 
-  for currTest in $(getTestFuncs); do
+  funcs="$(getTestFuncs)"
+  if [[ "$funcs" == "" || "$(echo "$funcs" | wc -l )" -lt 1 ]]; then
+    echo "no tests found"
+    return 0
+  fi
+
+  for currTest in $funcs; do
     callFuncIfTest $currTest
   done
 
