@@ -3,18 +3,25 @@
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
 #TODO: print collored output with flag.
-#TODO: Add support for benchmark tests
 
 usage() {
 cat << EOF
-T-Bash   v0.4.2
+T-Bash   v0.5.0
 A tiny bash testing framework.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes
-all functions that are prefixed with 'test_' in those files. Large tests are
-prefixed with 'testLarge_' and are only executed with the -a flag.
-Currently only supports 'assertEquals' test, all other cases can be tested
-using simple if statements and the 'fail' method.
+all functions that are prefixed with 'test_' in those files. Slow/lage tests
+should be prefixed with 'testLarge_' and are only run when providing the -a
+flag.
+
+Built-in matchers:
+- assertEquals "expected" "real" "log/msg"
+- assertMatches "expected" "^real.*" "log/msg"
+- fail "msg"
+
+Custom asserts are easily built using if-statements and the fail function, or
+through custom functions and using the 'failFromStackDepth 3 "msg"' method for
+correct error output.
 
 Usage:
 ./runTests.sh [-hvatm] [test_files...]
