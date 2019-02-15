@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# this contains a working example of testing a script
+# cd in examples, and run with `../runTests.sh test_extended_examples`
+
+TMP_HOME="$(pwd)/tmp_test/"
+
+setup() {
+  export HOME=$TMP_HOME # installation scripts for example can be testsed by overwriting environment variables.
+  mkdir -p $TMP_HOME
+
+  source ../extended_matchers.sh
+  source extended_example.sh # source the file under test, to be able to call all methods.
+}
+
+teardown() {
+  rm -rf $TMP_HOME
+}
+
+test__should_source() {
+
+  sourceThing
+
+  assertFileExists "$TMP_HOME/someFile.txt"
+  assertFileContains "source \.bashrc" "$TMP_HOME/someFile.txt"
+}
+
+test__should_setup_home() {
+
+  setupHome
+
+  assertDirExists "$TMP_HOME/bin"
+}
+
+test__should_get_output_of_function() {
+  echo "one line" > $HOME/someFile.txt
+
+  # In bash functions, you can not really return values to catch them in
+  # variables. You have to echo them, and catch the results. Like this:
+  result="$(isMultilineFile)"
+
+  assertEquals "false" "$result" # bash doesn't have booleans either, so i tend to just echo true or false as string
+}
+
+test__should_get_output_of_function2() {
+  echo -e "line 1\nline 2" > $HOME/someFile.txt
+
+  result2="$(isMultilineFile)"
+
+  assertEquals "true" "$result2" # bash doesn't have booleans either, so i tend to just echo true or false as string
+}
+
+
+test__should_mock_and_curl() {
+  # This is how you can mock stuff. First source the file (setup), and than you
+  # can overwrite a function, or even system functionality by crating a
+  # function of that name, like curl.
+  curl() { export requestedUrl="$1"; }
+
+  # NOTE: if there is a sub-shell involved, you might not be able to access
+  # variables.
+  downloadThing
+
+  assertMatches "runTests.sh$" "$requestedUrl"
+}
