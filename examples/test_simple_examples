@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+# this contains a example of basic usage and output
+# cd in examples, and run with `../runTests.sh test_simple_examples`
+
+fileSetup() {
+  echo "Runs once before running all the tests in this file."
+}
+
+fileTeardown() {
+  echo "Runs once after running all the tests in this file."
+}
+
+setup() {
+  echo "Runs before each test"
+}
+
+teardown() {
+  echo "Runs after each test"
+}
+
+test__succeeds_when_equal() {
+  assertEquals "a" "a"
+}
+
+test__fails_when_not_equal() {
+  assertEquals "a" "b"
+}
+
+test__prints_output_in_verbose_or_non_verbose_mode() {
+  echo "some output"
+  assertEquals "a" "a"
+}
+
+test__also_prints_output_when_test_fails() {
+  echo "some output again"
+  assertEquals "a" "b"
+}
+
+test__prints_unequals_on_two_lines_when_long() {
+  assertEquals "compare two rather long strings a" "compare two rather long strings b"
+}
+
+test__prints_more_isolated_when_unequals_with_multiline_output() {
+  assertEquals "line 1
+line 2" "line a
+line b"
+}
+
+test__succeeds_when_regex_matches() {
+  assertMatches "ha.*ve" "whatever"
+}
+
+test__fails_when_regex_not_matches() {
+  assertMatches "what.*ever" "whatevs"
+}
+
+test__assertMatches_also_prints_multiline_when_long() {
+  assertMatches "compare two rather long strings a" "compare two rather long strings b"
+}
+
+test__also_supports_notEquals() {
+  assertNotEquals "a" "a"
+}
+
+test__also_supports_notMatches() {
+  assertNotMatches "compare two rather long strings" "compare two rather long strings"
+}
+
+test__you_can_make_your_own_checks_with_fail() {
+  if [[ "a" != "b" ]]; then
+    fail "Expected 'a' to be equal to 'b'"
+  fi
+}
+
+test__prints_fail_output_when_exits_incorrectly_but_without_output() {
+  exit 1
+}
+
+test__you_can_even_make_your_own_matchers_with_failFromStackDepth() {
+  assertNotMultiline "$(echo -e "one\ntwo")"
+}
+
+assertNotMultiline() {
+  # use failFromStackDepth so the error correctly points to the causing test, and not to the assert method.
+  [[ "$( echo "$@" | wc -l )" -ne 1 ]] && failFromStackDepth 2 "Expected one line, but was multiple: '$@'"
+}

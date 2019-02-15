@@ -5,148 +5,322 @@ _REAL_TIMED=$TIMED
 _REAL_MATCH=$MATCH
 _REAL_RUN_LARGE_TESTS=$RUN_LARGE_TESTS
 _REAL_EXTENDED_DIFF=$EXTENDED_DIFF
+_REAL_COLOR_OUTPUT=$COLOR_OUTPUT
+
+#TODO: cleanup
+#TODO: Code performance?
+#TODO: Test scoping in test functions.
 
 setup() {
+  # You should normally load the script under test
+  #source ./runTests.sh
+  clearEnvVars
+  mkdir -p ./tmp
+}
+
+teardown() {
+  resetEnvVars
+  rm -rf ./tmp
+}
+
+clearEnvVars() {
   unset VERBOSE
   unset TIMED
   unset MATCH
   unset RUN_LARGE_TESTS
   unset EXTENDED_DIFF
-    # You should normally load the script under test
-    #source ./runTests.sh
-  mkdir -p ./tmp
+  unset COLOR_OUTPUT
 }
 
-teardown() {
+resetEnvVars() {
   VERBOSE=$_REAL_VERBOSE
   TIMED=$_REAL_TIMED
   MATCH=$_REAL_MATCH
   RUN_LARGE_TESTS=$_REAL_RUN_LARGE_TESTS
   EXTENDED_DIFF=$_REAL_EXTENDED_DIFF
-  rm -rf ./tmp
+  COLOR_OUTPUT=$_REAL_COLOR_OUTPUT
 }
 
-test_logger_should_only_log_when_verbose() {
-  result=$(logv "message")
-  assertEquals "" "$result"
+# Succesfull tests {{{1
 
-  VERBOSE=true
-  result=$(logv "message")
-  assertEquals "message" "$result"
+testLarge__should_run_basic_test() {
+  createMockTestFile "test_t1() { :; }"
+
+  result=$(runMockTests)
+  resetEnvVars
+
+  assertMatches "suite successfull" "$result"
+  assertEquals "
+[1A.[1Bsuite successfull" "$result"
 }
 
-test_assert_equals_should_not_print_anything_when_equal() {
-  result=$(assertEquals "some string" "some string")
-  assertEquals "" "$result"
+
+
+testLarge__should_run_basic_test_verbose() {
+  createMockTestFile "test_t1() { :; }"
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "running ./test_test1.sh" "$result"
+  assertMatches "test_t1" "$result"
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+suite successfull" "$result"
 }
 
-test_assert_equals_should_print_fail_when_unequals() {
-  assertLineNo=$(($LINENO+1))
-  result=$(assertEquals "some strin" "some string")
-
-  # This gets really hard to read.
-  expected="FAIL: ./test_runTests.sh($assertLineNo) > test_assert_equals_should_print_fail_when_unequals
-    expected: 'some strin', got: 'some string'"
-  assertEquals "$expected" "$result"
-}
-
-test_assert_matches_should_not_print_anything_when_matches() {
-  result=$(assertMatches "match" "fluf match fluf")
-  assertEquals "" "$result"
-
-  result=$(assertMatches ".*match.*" "fluf match fluf")
-  assertEquals "" "$result"
-}
-
-test_assert_matches_should_print_fail() {
-  result=$(assertMatches "somethingelse" "fluf match fluf")
-  assertMatches "FAIL:.*'somethingelse' should have matched 'fluf match fluf'" "$result"
-}
-
-test_fail_should_print_correctly() {
-  assertLineNo=$(($LINENO+1))
-  result=$(fail "Message")
-
-  # This gets really hard to read.
-  expected="FAIL: ./test_runTests.sh($assertLineNo) > test_fail_should_print_correctly
-    Message"
-  assertEquals "$expected" "$result"
-}
-
-test__call_if_exists() {
-  result="$(callIfExists "mock_function")"
-  assertEquals "mock_function called" "$result"
-}
-
-test__should_call_provided_test() {
-  result="$(callTest "mock_function")"
-  assertEquals "mock_function called" "$result"
-}
-
-test__should_call_setup_and_teardown() (
-  setup() { echo "setup called"; }
-  teardown() { echo "teardown called"; }
-
-  result="$(callTest "mock_function")"
-
-  assertEquals "$( echo -e "setup called\nmock_function called\nteardown called")" "$result"
-)
-
-test__should_call_suiteSetup_and_stuiteTeardown() (
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-fileSetup() { :; }
+testLarge__should_run_multiple_tests() {
+  createMockTestFile "
 test_t1() { :; }
 test_t2() { :; }
 test_t3() { :; }
-fileTeardown() { :; }
-EOF
+"
 
-  (cd tmp; ./runTests.sh -v > result.log)
+  result=$(runMockTests)
+  resetEnvVars
 
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  fileSetup
+  assertMatches "\.\.\." "$result"
+  assertMatches "suite successfull" "$result"
+  assertEquals "
+[1A.[1B[1A..[1B[1A...[1Bsuite successfull" "$result"
+}
+
+testLarge__should_run_multiple_tests_verbose() {
+  createMockTestFile "
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+"
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "test_t1" "$result"
+  assertMatches "test_t2" "$result"
+  assertMatches "test_t3" "$result"
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
   test_t1
   test_t2
   test_t3
-  fileTeardown
-suite successfull
-EOF
-  )" "$(cat tmp/result.log)"
-)
+suite successfull" "$result"
+}
 
-test__suiteSetup_should_fail_all_tests() (
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-fileSetup() { return 3; }
+testLarge__should_run_multiple_files_verbose() {
+  createMockTestFile "
 test_t1() { :; }
+"
+  createMockTestFile "
 test_t2() { :; }
-test_t3() { :; }
-fileTeardown() { :; }
-EOF
+"
 
-  (cd tmp; ./runTests.sh -v > result.log)
+  result=$(runMockTests -v)
+  resetEnvVars
 
+  assertMatches "running ./test_test1.sh" "$result"
+  assertMatches "running ./test_test2.sh" "$result"
+  assertMatches "test_t1" "$result"
+  assertMatches "test_t2" "$result"
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+running ./test_test2.sh
+  test_t2
+suite successfull" "$result"
+}
+# Failing tests {{{1
+testLarge__should_fail_suite_on_failing_test() {
+  createMockTestFile 'test_t1() { fail "error-message"; }'
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "FAIL: \./test_test1.sh\(1\) > test_t1" "$result"
+  assertMatches "TEST SUITE FAILED" "$result"
+  assertMatches "error-message" "$result"
+  assertMatches "1 failing tests in 1 files" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+FAIL: ./test_test1.sh(1) > test_t1
+    error-message
+1 failing tests in 1 files
+TEST SUITE FAILED" "$result"
+}
+
+
+testLarge__should_fail_suite_for_multiple_failing_tests() {
+createMockTestFile '
+test_t1() { fail "error-message"; }
+test_t2() { fail "error-message"; }
+test_t3() { fail "error-message"; }'
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "FAIL: \./test_test1.sh\([0-9]\) > test_t1" "$result"
+  assertMatches "FAIL: \./test_test1.sh\([0-9]\) > test_t2" "$result"
+  assertMatches "FAIL: \./test_test1.sh\([0-9]\) > test_t3" "$result"
+  assertMatches "3" "$(echo "$result" | grep "error-message" | wc -l )"
+  assertMatches "TEST SUITE FAILED" "$result"
+  assertMatches "3 failing tests in 1 files" "$result"
   assertEquals "$(cat << EOF
-running ./test_test.sh
-  fileSetup
-FAIL: fileSetup failed.
+running ./test_test1.sh
+  test_t1
+FAIL: ./test_test1.sh(2) > test_t1
+    error-message
+  test_t2
+FAIL: ./test_test1.sh(3) > test_t2
+    error-message
+  test_t3
+FAIL: ./test_test1.sh(4) > test_t3
+    error-message
 3 failing tests in 1 files
 TEST SUITE FAILED
 EOF
-  )" "$(cat tmp/result.log)"
+  )" "$result"
+}
+
+testLarge__should_warn_if_no_test_found() {
+  createMockTestFile ''
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "no tests found" "$result"
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
+no tests found
+suite successfull" "$result"
+}
+
+testLarge__should_fail_test_when_exited_with_error_but_no_output() {
+  createMockTestFile '
+test_t1() { exit 1; }
+test_t2() { fail "error-message"; }
+  '
+
+  result=$(runMockTests)
+  resetEnvVars
+
+  assertMatches "TEST SUITE FAILED" "$result"
+  assertMatches "2 failing tests in 1 files" "$result"
+  assertMatches "./test_test1.sh\(\?\) > test_t1" "$result"
+  assertEquals "
+[1A.[1BFAIL: ./test_test1.sh(?) > test_t1
+    Test failed without printing anything.
+[3A..[3BFAIL: ./test_test1.sh(3) > test_t2
+    error-message
+2 failing tests in 1 files
+TEST SUITE FAILED" "$result"
+}
+
+testLarge__should_fail_test_when_exited_with_error_but_no_output_verbose() {
+  createMockTestFile '
+test_t1() { exit 1; }
+test_t2() { fail "error-message"; }
+  '
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "TEST SUITE FAILED" "$result"
+  assertMatches "2 failing tests in 1 files" "$result"
+  assertMatches "./test_test1.sh\(\?\) > test_t1" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+FAIL: ./test_test1.sh(?) > test_t1
+    Test failed without printing anything.
+  test_t2
+FAIL: ./test_test1.sh(3) > test_t2
+    error-message
+2 failing tests in 1 files
+TEST SUITE FAILED" "$result"
+}
+
+# Test output {{{1
+
+test__should_print_output() {
+  createMockTestFile '
+test_t1() { echo one; }
+test_t2() { echo -e "two\nthree"; }
+'
+
+  result=$(runMockTests)
+  resetEnvVars
+
+  assertMatches "one" "$result"
+  assertMatches "two" "$result"
+  assertMatches "three" "$result"
+  assertEquals "
+[1A.[1Bone
+[2A..[2Btwo
+three
+suite successfull" "$result"
+}
+
+test__should_print_output_verbose() {
+  createMockTestFile '
+test_t1() { echo one; }
+test_t2() { echo -e "two\nthree"; }
+'
+
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "one" "$result"
+  assertMatches "two" "$result"
+  assertMatches "three" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+one
+  test_t2
+two
+three
+suite successfull" "$result"
+}
+
+# Matching tests {{{1
+
+test__has_match_should_only_get_matching_test() (
+  compgen() { echo -e "test_mock_some_function\ntestLarge_mock_other_function" ;}
+  unset RUN_LARGE_TESTS
+
+  assertEquals "test_mock_some_function" "$(getTestFuncs)"
 )
 
-test__when_matching_should_call_matching_test() (
-  test_mock_function() { echo "mock_function called"; }
-  VERBOSE=true
+testLarge__should_respect_matcher() {
+  createMockTestFile "
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }
+"
 
-  MATCH="*ock_func*"
-  result="$(callFuncIfTest "test_mock_function")"
+  result=$(runMockTests -m test_t2)
+  resetEnvVars
 
-  assertEquals "$(echo -e "  test_mock_function\nmock_function called")" "$result"
-)
+  assertMatches "\." "$result"
+  assertNotMatches "\.\.\." "$result"
+  assertEquals "
+[1A.[1Bsuite successfull" "$result"
+}
+
+testLarge__should_respect_matcher_on_verbose_output() {
+createMockTestFile '
+test_t1() { :; }
+test_t2() { :; }
+test_t3() { :; }'
+
+  result=$(runMockTests -vm test_t2)
+  resetEnvVars
+
+  assertMatches "test_t2" "$result"
+  assertNotMatches "test_t1" "$result"
+  assertNotMatches "test_t3" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t2
+suite successfull" "$result"
+}
 
 test__getTestFuncs_should_only_get_matching_test() (
   test_mock_some_function() { :; }
@@ -171,13 +345,6 @@ test__when_has_match_should_only_get_matching_test() (
   assertEquals "test_mock_matching_function" "$(getTestFuncs)" #carefull, getTestFuncs also returns the tests in this file
 )
 
-test__has_match_should_only_get_matching_test() (
-  compgen() { echo -e "test_mock_some_function\ntestLarge_mock_other_function" ;}
-  unset RUN_LARGE_TESTS
-
-  assertEquals "test_mock_some_function" "$(getTestFuncs)"
-)
-
 test__matcher_should_also_match_large_tests() (
   test_mock_some_function() { :; }
   testLarge_mock_other_function() { :; }
@@ -188,180 +355,280 @@ test__matcher_should_also_match_large_tests() (
   assertEquals "testLarge_mock_matching_function" "$(getTestFuncs)" #carefull, getTestFuncs also returns the tests in this file
 )
 
-test__should_print_time_when_required() (
-  overwriteEnv
-  export TIMED="true" 
+# Setup & teardown {{{1
 
-  result="$(callTest "mock_function" 2>&1 )"
+test__should_call_setup_and_teardown() (
+createMockTestFile '
+setup() { echo "setup called"; }
+test_t1() { echo "method"; }
+test_t2() { fail "method failed"; }
+test_t3() { exit 1; }
+teardown() { echo "teardown called"; }'
 
-  assertEquals "$(echo -e "mock_function\nmock_function called\nreal 0.00\nuser 0.00\nsys 0.00" )" "$result"
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "setup called" "$result"
+  assertMatches "teardown called" "$result"
+  assertMatches "3" "$(echo "$result" | grep "setup called" | wc -l)"
+  assertMatches "3" "$(echo "$result" | grep "teardown called" | wc -l)"
+  assertEquals "$(cat << EOF
+running ./test_test1.sh
+  test_t1
+setup called
+method
+teardown called
+  test_t2
+setup called
+method
+teardown called
+  test_t3
+setup called
+method
+teardown called
+suite successfull
+EOF
+  )" "$result"
 )
 
-testLarge__should_run_basic_test() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() {
-  :
-}
-EOF
-  (cd tmp; ./runTests.sh > result.log)
-  assertEquals "$(cat << EOF
-
-[1A.[1Bsuite successfull
-EOF
-  )" "$(cat tmp/result.log)"
-}
-
-testLarge__should_run_basic_test_verbose() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() { :; }
-EOF
-  (cd tmp; ./runTests.sh -v > result.log)
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  test_t1
-suite successfull
-EOF
-  )" "$(cat tmp/result.log)"
-}
-
-testLarge__should_run_multiple_tests() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
+test__should_call_fileSetup_and_fileTeardown() (
+createMockTestFile '
+fileSetup() { :; }
 test_t1() { :; }
 test_t2() { :; }
 test_t3() { :; }
-EOF
+fileTeardown() { :; }'
 
-  (cd tmp; ./runTests.sh > result.log)
 
+  result=$(runMockTests -v)
+  resetEnvVars
+
+  assertMatches "fileSetup" "$result"
+  assertMatches "fileTeardown" "$result"
   assertEquals "$(cat << EOF
-
-[1A.[1B[1A..[1B[1A...[1Bsuite successfull
+running ./test_test1.sh
+  fileSetup
+  test_t1
+  test_t2
+  test_t3
+  fileTeardown
+suite successfull
 EOF
-  )" "$(cat tmp/result.log)"
-}
+  )" "$result"
+)
 
-testLarge__should_run_multiple_tests_verbose() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
+test__fileSetup_should_fail_all_tests() (
+createMockTestFile '
+fileSetup() { return 3; }
 test_t1() { :; }
 test_t2() { :; }
 test_t3() { :; }
-EOF
+fileTeardown() { :; }'
 
-  (cd tmp; ./runTests.sh -v > result.log)
+  result=$(runMockTests -v)
+  resetEnvVars
 
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  test_t1
-  test_t2
-  test_t3
-suite successfull
-EOF
-  )" "$(cat tmp/result.log)"
-}
-
-
-testLarge__should_fail_suite_on_failing_test() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() { fail "error-message"; }
-EOF
-  (cd tmp; ./runTests.sh -v > result.log)
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  test_t1
-FAIL: ./test_test.sh(1) > test_t1
-    error-message
-1 failing tests in 1 files
-TEST SUITE FAILED
-EOF
-  )" "$(cat tmp/result.log)"
-}
-
-
-testLarge__should_fail_suite_for_multiple_failing_tests() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() { fail "error-message"; }
-test_t2() { fail "error-message"; }
-test_t3() { fail "error-message"; }
-EOF
-  (cd tmp; ./runTests.sh -v > result.log)
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  test_t1
-FAIL: ./test_test.sh(1) > test_t1
-    error-message
-  test_t2
-FAIL: ./test_test.sh(2) > test_t2
-    error-message
-  test_t3
-FAIL: ./test_test.sh(3) > test_t3
-    error-message
+  assertMatches "3 failing tests in 1 files" "$result"
+  assertEquals "running ./test_test1.sh
+  fileSetup
+FAIL: fileSetup failed.
 3 failing tests in 1 files
-TEST SUITE FAILED
-EOF
-  )" "$(cat tmp/result.log)"
+TEST SUITE FAILED" "$result"
+)
+
+test__should_call_setup_and_teardown() (
+  setup() { echo "setup called"; }
+  teardown() { echo "teardown called"; }
+
+  result="$(runTest "mock_function")"
+
+  assertEquals "$( echo -e "setup called\nmock_function called\nteardown called")" "$result"
+)
+
+# Time {{{1
+
+testLarge__should_print_time() {
+  createMockTestFile "test_t1() { :; }"
+
+  result=$(runMockTests -t)
+  resetEnvVars
+
+  # notice it is the same as verbose
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+real 0.00
+user 0.00
+sys 0.00
+
+suite successfull" "$result"
 }
 
-testLarge__should_respect_matcher() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() { :; }
-test_t2() { :; }
-test_t3() { :; }
-EOF
+testLarge__should_print_time_verbose() {
+  createMockTestFile "test_t1() { :; }"
 
-  (cd tmp; ./runTests.sh -vm test_t2 > result.log)
+  result=$(runMockTests -vt)
+  resetEnvVars
 
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-  test_t2
-suite successfull
-EOF
-  )" "$(cat tmp/result.log)"
+  # notice above the output is always verbose
+  assertMatches "suite successfull" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+real 0.00
+user 0.00
+sys 0.00
+
+suite successfull" "$result"
 }
 
-testLarge__should_respect_matcher_on_verbose_output() {
-  cp ./runTests.sh ./tmp/
-cat << EOF >> ./tmp/test_test.sh
-test_t1() { :; }
-test_t2() { :; }
-test_t3() { :; }
-EOF
+# format expected got {{{1
 
-  (cd tmp; ./runTests.sh -m test_t2 > result.log)
-
-  assertEquals "$(cat << EOF
-
-[1A.[1Bsuite successfull
-EOF
-  )" "$(cat tmp/result.log)"
+test__should_format_simple_exception() {
+  result="$(formatAValueBValue "expected:" "a" "got:" "b")"
+  assertEquals "expected: 'a', got: 'b'" "$result"
 }
 
-testLarge__should_warn_if_no_test_found() {
-  cp ./runTests.sh ./tmp/
-  touch ./tmp/test_test.sh
+test__should_format_simple_exception_color() {
+  export COLOR_OUTPUT="true"
+  colorResult="$(formatAValueBValue "expected:" "a" "got:" "b")"
 
-  (cd tmp; ./runTests.sh -v > result.log)
+  export COLOR_OUTPUT="false"
+  assertEquals "expected: '${COLOR_GREEN}a$COLOR_NONE', got: '${COLOR_RED}b$COLOR_NONE'" "$colorResult"
+}
 
-  assertEquals "$(cat << EOF
-running ./test_test.sh
-no tests found
-suite successfull
-EOF
-  )" "$(cat tmp/result.log)"
+test__should_format_longer_exception_on_two_lines() {
+  expected="compare two rather long strings a"
+  got="compare two rather long strings b"
+
+  result="$(formatAValueBValue "expected:" "$expected" "got:" "$got")"
+
+  assertEquals "$(echo -en "expected: '$expected'\n     got: '$got'")" "$result"
+}
+
+test__should_format_multiline_exception_on_seperate_lines() {
+  expected="line 1
+line 2"
+  got="line a
+line b"
+
+  result="$(formatAValueBValue "expected:" "$expected" "got:" "$got")"
+
+  assertEquals "$(echo -en "> expected:\n$expected\n> got:\n$got")" "$result"
 }
 
 
-# HELPERS
+# Helper functions {{{1
+
+test_logger_should_only_log_when_verbose() {
+  result=$(verboseEcho "message")
+  assertEquals "" "$result"
+
+  VERBOSE=true
+  result=$(verboseEcho "message")
+  assertEquals "message" "$result"
+}
+
+test__call_if_exists() {
+  result="$(callIfExists "mock_function")"
+  assertEquals "mock_function called" "$result"
+}
+
+test__getWithOfWidestString() {
+  assertEquals 5 "$(getWithOfWidestString "123" "12345")"
+  assertEquals 6 "$(getWithOfWidestString "123456" "1234")"
+  assertEquals 9 "$(getWithOfWidestString "expected:" "got:")"
+}
+
+test__rightAlign() {
+  assertEquals " 234" "$(rightAlign 4 "234")"
+  assertEquals "  234" "$(rightAlign 5 "234")"
+  assertEquals "       abc" "$(rightAlign 10 "abc")"
+  assertEquals "expected:" "$(rightAlign 9 "expected:")"
+  assertEquals "     got:" "$(rightAlign 9 "got:")"
+}
+
+
+# Asserts {{{1
+
+test__equals__should_not_print_anything_when_equal() {
+  result=$(assertEquals "some string" "some string")
+  assertEquals "" "$result"
+}
+
+test__equals__should_print_fail_when_unequals() {
+  assertLineNo=$(($LINENO+1))
+  result=$(assertEquals "some strin" "some string")
+
+  # This gets really hard to read.
+  expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_fail_when_unequals
+    expected: 'some strin', got: 'some string'"
+  assertEquals "$expected" "$result"
+}
+
+test__equals__should_print_log_if_provided() {
+  assertLineNo=$(($LINENO+1))
+  result=$(assertEquals "some strin" "some string" "Error. Not found.")
+
+  # This gets really hard to read.
+  expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_log_if_provided
+    expected: 'some strin', got: 'some string'
+    Error. Not found."
+  assertEquals "$expected" "$result"
+}
+
+test__matches__should_not_print_anything_when_matches() {
+  result=$(assertMatches "match" "fluf match fluf")
+  assertEquals "" "$result"
+
+  result=$(assertMatches ".*match.*" "fluf match fluf")
+  assertEquals "" "$result"
+}
+
+test__matches__should_print_fail() {
+  result=$(assertMatches "somethingelse" "fluf match fluf")
+
+  export COLOR_OUTPUT="true"
+  assertMatches "FAIL:.*expected.regex: 'somethingelse'.* to match: 'fluf match fluf'" "$result"
+}
+
+test__matches__should_print_log_if_provided() {
+  result=$(assertMatches "somethingelse" "fluf match fluf" "The one should match the other")
+
+  export COLOR_OUTPUT="true"
+  assertMatches "FAIL:.*expected.regex: 'somethingelse'.* to match: 'fluf match fluf'" "$result"
+  assertMatches "The one should match the other" "$result"
+}
+
+test__fail__should_print_correctly() {
+  assertLineNo=$(($LINENO+1))
+  result=$(fail "Message")
+
+  # This gets really hard to read.
+  expected="FAIL: ./test_runTests.sh($assertLineNo) > test__fail__should_print_correctly
+    Message"
+  assertEquals "$expected" "$result"
+}
+
+
+# HELPERS {{{1
 #--------------------------------------------------------------------------------
+
+
+createMockTestFile() {
+  f="./tmp/test_test1.sh"
+  [[ -f $f ]] && f="./tmp/test_test2.sh"
+  echo "$@" >> $f
+}
+
+runMockTests() {
+  clearEnvVars
+  cd tmp; ../runTests.sh $@
+}
+
 
 mock_function() { echo "mock_function called"; }
 
 overwriteEnv() {
   setup() { echo -n ""; }; teardown() { echo -n ""; }
 }
+# vim:fdm=marker
