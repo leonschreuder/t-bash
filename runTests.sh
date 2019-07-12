@@ -185,7 +185,9 @@ checkHasTests() {
 
 runTest() {
   callIfExists setup
+  trap 'callIfExists teardown' EXIT # set a trap to call teardown in case an exception is thrown
   $1
+  trap - EXIT # Exited normally, so we can remove the trap
   callIfExists teardown
 }
 

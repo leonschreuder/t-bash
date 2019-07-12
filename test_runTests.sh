@@ -357,21 +357,22 @@ test__matcher_should_also_match_large_tests() (
 
 # Setup & teardown {{{1
 
-test__should_call_setup_and_teardown() (
+test__should_call_setup_and_teardown_with_exceptions() (
 createMockTestFile '
 setup() { echo "setup called"; }
+teardown() { echo "teardown called"; }
 test_t1() { echo "method"; }
 test_t2() { fail "method failed"; }
 test_t3() { exit 1; }
-teardown() { echo "teardown called"; }'
+test_t4() { assertMatches "a" "b" ; }'
 
   result=$(runMockTests -v)
   resetEnvVars
 
   assertMatches "setup called" "$result"
   assertMatches "teardown called" "$result"
-  assertMatches "3" "$(echo "$result" | grep "setup called" | wc -l)"
-  assertMatches "3" "$(echo "$result" | grep "teardown called" | wc -l)"
+  assertMatches "4" "$(echo "$result" | grep "setup called" | wc -l)"
+  assertMatches "4" "$(echo "$result" | grep "teardown called" | wc -l)"
   assertEquals "$(cat << EOF
 running ./test_test1.sh
   test_t1
@@ -380,13 +381,19 @@ method
 teardown called
   test_t2
 setup called
-method
+FAIL: ./test_test1.sh(5) > test_t2
+    method failed
 teardown called
   test_t3
 setup called
-method
 teardown called
-suite successfull
+  test_t4
+setup called
+FAIL: ./test_test1.sh(7) > test_t4
+    expected regex: 'a', to match: 'b'
+teardown called
+3 failing tests in 1 files
+TEST SUITE FAILED
 EOF
   )" "$result"
 )
