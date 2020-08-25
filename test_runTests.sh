@@ -30,6 +30,7 @@ clearEnvVars() {
   unset RUN_LARGE_TESTS
   unset EXTENDED_DIFF
   unset COLOR_OUTPUT
+  unset HIGHLIGHT_WHITESPACE
 }
 
 resetEnvVars() {
@@ -521,6 +522,30 @@ line b"
   result="$(formatAValueBValue "expected:" "$expected" "got:" "$got")"
 
   assertEquals "$(echo -en "> expected:\n$expected\n> got:\n$got")" "$result"
+}
+
+test__should_highlight_whitespace() {
+  inA="line
+  spaceIndent
+	tabIndent"
+  inB="line
+spaceIndent
+tabIndent"
+  export HIGHLIGHT_WHITESPACE=true
+
+  result="$(formatAValueBValue "A:" "$inA" "B:" "$inB")"
+  unset HIGHLIGHT_WHITESPACE
+
+# set listchars=tab:▸\ ,eol:¬,trail:·,nbsp:·
+
+  expectedA="line¬
+··spaceIndent¬
+▸ tabIndent¬"
+  expectedB="line¬
+spaceIndent¬
+tabIndent¬"
+
+  assertEquals "$(echo -en "> A:\n$expectedA\n> B:\n$expectedB")" "$result"
 }
 
 
