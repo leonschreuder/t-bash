@@ -8,7 +8,7 @@ COLOR_GREEN='\e[0;32m'
 
 help() {
   cat << EOF
-T-Bash   v1.0.0
+T-Bash   v1.1.0
 A tiny self-updating testing framework for bash.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes
@@ -40,6 +40,7 @@ Usage:
 -m [testmatcher]  Runs only the tests that match the string.
 -t                Runs each test with 'time' command.
 -c                Print pretty colors for easy diffing
+-w                Highlight whitespace types in diff
 -e                Extended diff. Diffs using 'wdiff' and/or 'colordiff' when installed.
 -u                Execute a self-update (updates from master).
 EOF
@@ -49,7 +50,7 @@ exit
 # main (files and suite) {{{1
 
 main() {
-  while getopts "hvam:tceu" opt; do
+  while getopts "hvam:tcewu" opt; do
     case $opt in
       h)
         help
@@ -71,6 +72,9 @@ main() {
         ;;
       e)
         export EXTENDED_DIFF=true
+        ;;
+      w)
+        export HIGHLIGHT_WHITESPACE=true
         ;;
       u)
         runSelfUpdate
@@ -257,7 +261,7 @@ failWithExtendedDiff() {
   if [[ "$EXTENDED_DIFF" == "true" ]]; then
     if hash wdiff 2>/dev/null; then
       if hash colordiff; then
-        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2") | colordiff)"
+        failFromStackDepth 3 "$(wdiff -n <(echo "$1") <(echo "$2") | colordiff)"
       else
         failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2"))"
       fi
@@ -274,14 +278,20 @@ formatAValueBValue() {
   # when failing on equals, different lenths of output are printed differently.
   maxSizeForInline=30
   a="$1"
-  valueA="$(echo "$2" | cat -v)" # cat -v to print non-printing characters
+  valueA="$2"
   b="$3"
-  valueB="$(echo "$4" | cat -v)"
+  valueB="$4"
+
+  if [[ "$HIGHLIGHT_WHITESPACE" == "true" ]]; then
+    valueA="$(sed -e 's/\ /·/g' -e 's/\t/▸ /g' -e 's/$/¬/' <<< "$valueA")"
+    valueB="$(sed -e 's/\ /·/g' -e 's/\t/▸ /g' -e 's/$/¬/' <<< "$valueB")"
+  fi
 
   if [[ "$COLOR_OUTPUT" == "true" ]]; then
     valueA="$COLOR_GREEN$valueA$COLOR_NONE"
     valueB="$COLOR_RED$valueB$COLOR_NONE"
   fi
+
 
   if [[ "$(echo "$valueA" | wc -l)" -gt 1 || "$(echo "$valueB" | wc -l)" -gt 1 ]]; then
     # output has multiple lines
