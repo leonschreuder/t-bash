@@ -8,7 +8,7 @@ COLOR_GREEN='\e[0;32m'
 
 help() {
   cat << EOF
-T-Bash   v1.1.0
+T-Bash   v1.2.0
 A tiny self-updating testing framework for bash.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes
@@ -257,62 +257,59 @@ failFromStackDepth() {
 
 # Output {{{1
 
-failWithExtendedDiff() {
-  if [[ "$EXTENDED_DIFF" == "true" ]]; then
-    if hash wdiff 2>/dev/null; then
-      if hash colordiff; then
-        failFromStackDepth 3 "$(wdiff -n <(echo "$1") <(echo "$2") | colordiff)"
-      else
-        failFromStackDepth 3 "$(wdiff <(echo "$1") <(echo "$2"))"
-      fi
-    else
-      exitWithError "No extended diff-tool found. Supports 'wdiff' with optional 'colordiff'."
-    fi
-    echo
-  else
-    failFromStackDepth 3 "$(formatAValueBValue "expected:" "$1" "got:" "$2" "$3")"
-  fi
-}
-
 formatAValueBValue() {
   # when failing on equals, different lenths of output are printed differently.
   maxSizeForInline=30
-  a="$1"
+  nameA="$1"
   valueA="$2"
-  b="$3"
+  nameB="$3"
   valueB="$4"
+  message="$5"
 
   if [[ "$HIGHLIGHT_WHITESPACE" == "true" ]]; then
-    valueA="$(sed -e 's/\ /·/g' -e 's/\t/▸ /g' -e 's/$/¬/' <<< "$valueA")"
-    valueB="$(sed -e 's/\ /·/g' -e 's/\t/▸ /g' -e 's/$/¬/' <<< "$valueB")"
+    valueA="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueA")"
+    valueB="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueB")"
   fi
 
-  if [[ "$COLOR_OUTPUT" == "true" ]]; then
-    valueA="$COLOR_GREEN$valueA$COLOR_NONE"
-    valueB="$COLOR_RED$valueB$COLOR_NONE"
-  fi
+  [[ "$message" != "" ]] && echo "$message"
 
-
-  if [[ "$(echo "$valueA" | wc -l)" -gt 1 || "$(echo "$valueB" | wc -l)" -gt 1 ]]; then
-    # output has multiple lines
-    echo "> $a"
-    echo "$valueA"
-    echo "> $b" #
-    echo "$valueB"
-  elif [[ "${#valueA}" -gt $maxSizeForInline || ${#valueB} -gt $maxSizeForInline ]]; then
-    # output has long lines
-    width=$(getWithOfWidestString "$a" "$b")
-    alighnedA="$(rightAlign $width "$a")"
-    alighnedB="$(rightAlign $width "$b")"
-    echo "$alighnedA '$valueA'" # So much output we should print on seperate lines. Print 2 lines and indent 'got:'
-    echo "$alighnedB '$valueB'" # So much output we should print on seperate lines. Print 2 lines and indent 'got:'
+  if [[ "$EXTENDED_DIFF" == "true" ]]; then
+    printExtendedDiff "$valueA" "$valueB"
   else
-    # output has short lines
-    echo "$a '$valueA', $b '$valueB'" # Not so much output. Print all in one line, comma separated
-  fi
 
-  if [[ -n ${5+x} ]]; then
-    echo "$5"
+    if [[ "$COLOR_OUTPUT" == "true" ]]; then
+      valueA="$COLOR_GREEN$valueA$COLOR_NONE"
+      valueB="$COLOR_RED$valueB$COLOR_NONE"
+    fi
+
+    if [[ "$(echo "$valueA" | wc -l)" -gt 1 || "$(echo "$valueB" | wc -l)" -gt 1 ]]; then
+      # output has multiple lines
+      echo "> $nameA"
+      echo "$valueA"
+      echo "> $nameB"
+      echo "$valueB"
+    elif [[ "${#valueA}" -gt $maxSizeForInline || ${#valueB} -gt $maxSizeForInline ]]; then
+      # Not multiline, but enough output we should print values on seperate
+      # lines. Indent to make visualy comparing easyer.
+      width=$(getWithOfWidestString "$nameA" "$nameB")
+      echo "$(rightAlign $width "$nameA") '$valueA'"
+      echo "$(rightAlign $width "$nameB") '$valueB'"
+    else
+      # Output is really short. So we can print inlined
+      echo "$nameA '$valueA', $nameB '$valueB'" # Not so much output. Print all in one line, comma separated
+    fi
+  fi
+}
+
+printExtendedDiff() {
+  if hash wdiff 2>/dev/null; then
+    if hash colordiff; then
+      echo "$(wdiff -n <(echo "$1") <(echo "$2") | colordiff)"
+    else
+      echo "$(wdiff <(echo "$1") <(echo "$2"))"
+    fi
+  else
+    exitWithError "No extended diff-tool found. Supports 'wdiff' with optional 'colordiff'."
   fi
 }
 
@@ -382,7 +379,7 @@ exec /bin/bash selfUpdateScript.sh
 
 assertEquals() {
   [[ "$2" != "$1" ]] &&
-    failWithExtendedDiff "$1" "$2" "$3"
+    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "to equal:" "$2" "$3")"
 }
 
 assertNotEquals() {

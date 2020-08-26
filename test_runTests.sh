@@ -593,7 +593,7 @@ test__equals__should_print_fail_when_unequals() {
 
   # This gets really hard to read.
   expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_fail_when_unequals
-    expected: 'some strin', got: 'some string'"
+    expected: 'some strin', to equal: 'some string'"
   assertEquals "$expected" "$result"
 }
 
@@ -603,8 +603,8 @@ test__equals__should_print_log_if_provided() {
 
   # This gets really hard to read.
   expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_log_if_provided
-    expected: 'some strin', got: 'some string'
-    Error. Not found."
+    Error. Not found.
+    expected: 'some strin', to equal: 'some string'"
   assertEquals "$expected" "$result"
 }
 
