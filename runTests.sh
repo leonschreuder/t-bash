@@ -379,7 +379,7 @@ exec /bin/bash selfUpdateScript.sh
 
 assertEquals() {
   [[ "$2" != "$1" ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "to equal:" "$2" "$3")"
+    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "got:" "$2" "$3")"
 }
 
 assertNotEquals() {
@@ -395,6 +395,34 @@ assertMatches() {
 assertNotMatches() {
   [[ "$2" =~ $1 ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$1" "to NOT match:" "$2" "$3")"
+}
+
+assertFileExists() {
+  [[ ! -e "$1" ]] && failFromStackDepth 2 "Expected file '$1' to exist."
+  [[ ! -f "$1" ]] && failFromStackDepth 2 "Expected '$1' to be a file."
+}
+assertFileNotExists() {
+  [[ -e $1 ]] && failFromStackDepth 2 "Expected file '$1' to NOT exist."
+}
+
+
+assertDirExists() {
+  [[ ! -e $1 ]] && failFromStackDepth 2 "Expected dir '$1' to exist."
+  [[ ! -d $1 ]] && failFromStackDepth 2 "Expected '$1' to be a directory."
+}
+assertDirNotExists() {
+  [[ -d $1 ]] && failFromStackDepth 2 "Expected dir '$1' to NOT exist."
+}
+
+
+assertFileContains() {
+  [[ ! -e "$2" ]] && failFromStackDepth 2 "File '$2' doesn't exist"
+  grep -q "$1" "$2" || failFromStackDepth 2 "Expected file '$2' contents to match (grep):\n    '$1'"
+}
+
+assertFileNotContains() {
+  [[ ! -e "$2" ]] && failFromStackDepth 2 "File '$2' doesn't exist"
+  grep -q "$1" "$2" && failFromStackDepth 2 "Expected file '$2' contents to NOT match (grep):\n    '$1'"
 }
 
 fail() {

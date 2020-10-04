@@ -7,6 +7,8 @@ _REAL_RUN_LARGE_TESTS=$RUN_LARGE_TESTS
 _REAL_EXTENDED_DIFF=$EXTENDED_DIFF
 _REAL_COLOR_OUTPUT=$COLOR_OUTPUT
 
+TMP_TEST="$(pwd)/tmp_test"
+
 #TODO: cleanup
 #TODO: Code performance?
 #TODO: Test scoping in test functions.
@@ -15,12 +17,12 @@ setup() {
   # You should normally load the script under test
   #source ./runTests.sh
   clearEnvVars
-  mkdir -p ./tmp
+  mkdir -p $TMP_TEST
 }
 
 teardown() {
   resetEnvVars
-  rm -rf ./tmp
+  rm -rf $TMP_TEST
 }
 
 clearEnvVars() {
@@ -593,7 +595,7 @@ test__equals__should_print_fail_when_unequals() {
 
   # This gets really hard to read.
   expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_fail_when_unequals
-    expected: 'some strin', to equal: 'some string'"
+    expected: 'some strin', got: 'some string'"
   assertEquals "$expected" "$result"
 }
 
@@ -604,7 +606,7 @@ test__equals__should_print_log_if_provided() {
   # This gets really hard to read.
   expected="FAIL: ./test_runTests.sh($assertLineNo) > test__equals__should_print_log_if_provided
     Error. Not found.
-    expected: 'some strin', to equal: 'some string'"
+    expected: 'some strin', got: 'some string'"
   assertEquals "$expected" "$result"
 }
 
@@ -641,20 +643,54 @@ test__fail__should_print_correctly() {
   assertEquals "$expected" "$result"
 }
 
+test__asserting_file_exist() {
+  assertMatches "^FAIL" "$(assertFileExists "$TMP_TEST/someFile.txt")"
+  assertEquals "" "$(assertFileNotExists "$TMP_TEST/someFile.txt")"
+
+  touch $TMP_TEST/someFile.txt
+  assertEquals "" "$(assertFileExists "$TMP_TEST/someFile.txt")"
+  assertMatches "^FAIL" "$(assertFileNotExists "$TMP_TEST/someFile.txt")"
+
+  mkdir $TMP_TEST/some-dir
+  assertMatches "^FAIL.*be a file" "$(assertFileExists "$TMP_TEST/some-dir")"
+}
+
+test__asserting_dir_exist() {
+  assertMatches "^FAIL" "$(assertDirExists "$TMP_TEST/some-dir")"
+  assertEquals "" "$(assertDirNotExists "$TMP_TEST/some-dir")"
+
+  mkdir $TMP_TEST/some-dir
+  assertEquals "" "$(assertDirExists "$TMP_TEST/some-dir")"
+  assertMatches "^FAIL" "$(assertDirNotExists "$TMP_TEST/some-dir")"
+
+  touch $TMP_TEST/someFile.txt
+  assertMatches "^FAIL.*be a directory" "$(assertDirExists "$TMP_TEST/someFile.txt")"
+}
+
+test__asserting_file_contents() {
+  echo -e "line1\nline2\nline3\n" > $TMP_TEST/someFile.txt
+
+  assertEquals "" "$(assertFileContains "line2" "$TMP_TEST/someFile.txt")"
+  assertMatches "^FAIL" "$(assertFileContains "line4" "$TMP_TEST/someFile.txt")"
+
+  assertEquals "" "$(assertFileNotContains "line5" "$TMP_TEST/someFile.txt")"
+  assertMatches "^FAIL" "$(assertFileNotContains "line2" "$TMP_TEST/someFile.txt")"
+}
+
 
 # HELPERS {{{1
 #--------------------------------------------------------------------------------
 
 
 createMockTestFile() {
-  f="./tmp/test_test1.sh"
-  [[ -f $f ]] && f="./tmp/test_test2.sh"
+  f="$TMP_TEST/test_test1.sh"
+  [[ -f $f ]] && f="$TMP_TEST/test_test2.sh"
   echo "$@" >> $f
 }
 
 runMockTests() {
   clearEnvVars
-  cd tmp; ../runTests.sh $@
+  cd $TMP_TEST; ../runTests.sh $@
 }
 
 
