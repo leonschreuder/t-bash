@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+SCRIPT_VERSION="1.3.0"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
@@ -8,7 +9,7 @@ COLOR_GREEN='\e[0;32m'
 
 help() {
   cat << EOF
-T-Bash   v1.2.0
+T-Bash   v$SCRIPT_VERSION
 A tiny self-updating testing framework for bash.
 
 Loads all files in the cwd that are prefixed with 'test_', and then executes

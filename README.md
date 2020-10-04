@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/meonlol/t-bash.svg?branch=master)](https://travis-ci.org/meonlol/t-bash)
+[![Build Status](https://travis-ci.com/meonlol/t-bash.svg?branch=master)](https://travis-ci.com/meonlol/t-bash)
+
 
 # t-bash
 A tiny self-updating testing framework for bash.

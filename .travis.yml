@@ -3,3 +3,4 @@ os:
   - osx
 script:
   - ./runTests.sh -v
+  - ./checkVersionChanged.sh
