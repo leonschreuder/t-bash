@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
@@ -424,6 +424,22 @@ assertFileContains() {
 assertFileNotContains() {
   [[ ! -e "$2" ]] && failFromStackDepth 2 "File '$2' doesn't exist"
   grep -q "$1" "$2" && failFromStackDepth 2 "Expected file '$2' contents to NOT match (grep):\n    '$1'"
+}
+
+assertExitCodeEquals() {
+  exitCode=$?
+  [[ $1 != ?(-)+([0-9]) ]] &&
+    failFromStackDepth 2 "Invalid expected exit code '$1'"
+  [[ $exitCode != $1 ]] &&
+    failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
+}
+
+assertExitCodeNotEquals() {
+  exitCode=$?
+  [[ $1 != ?(-)+([0-9]) ]] &&
+    failFromStackDepth 2 "Invalid expected exit code '$1'"
+  [[ $exitCode == $1 ]] &&
+    failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
 }
 
 fail() {

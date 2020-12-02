@@ -678,6 +678,21 @@ test__asserting_file_contents() {
 }
 
 
+test__asserting_exit_code() {
+  (exit 0)
+  assertExitCodeEquals 0
+
+  (exit 1)
+  assertExitCodeEquals 1
+
+  testF() { return 2; }
+  testF
+  assertExitCodeEquals 2
+
+  assertExitCodeNotEquals 1
+}
+
+
 # HELPERS {{{1
 #--------------------------------------------------------------------------------
 
