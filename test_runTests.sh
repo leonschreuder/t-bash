@@ -689,6 +689,7 @@ test__asserting_exit_code() {
   testF
   assertExitCodeEquals 2
 
+  testF
   assertExitCodeNotEquals 1
 }
 
