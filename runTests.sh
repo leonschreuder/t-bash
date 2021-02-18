@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.2"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
@@ -428,7 +428,8 @@ assertFileNotContains() {
 
 assertExitCodeEquals() {
   exitCode=$?
-  [[ $1 != ?(-)+([0-9]) ]] &&
+  re='?(-)+([0-9])'
+  [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
   [[ $exitCode != $1 ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
@@ -436,7 +437,8 @@ assertExitCodeEquals() {
 
 assertExitCodeNotEquals() {
   exitCode=$?
-  [[ $1 != ?(-)+([0-9]) ]] &&
+  re='?(-)+([0-9])'
+  [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
   [[ $exitCode == $1 ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
