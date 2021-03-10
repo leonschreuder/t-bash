@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
@@ -90,6 +90,7 @@ main() {
 
   declare -i TOTAL_FAILING_TESTS=0
   [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
+  ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
 
   resolveTestFiles "$@"
 
