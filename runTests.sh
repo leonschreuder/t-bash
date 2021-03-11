@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
 
@@ -87,6 +87,7 @@ main() {
     esac
   done
   shift "$((OPTIND - 1))"
+  unset OPTIND # make sure this doesn't get inherited into the tests
 
   declare -i TOTAL_FAILING_TESTS=0
   [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
