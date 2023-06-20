@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.4"
+SCRIPT_VERSION="1.3.5"
 
-SELF_UPDATE_URL="https://raw.githubusercontent.com/meonlol/t-bash/master/runTests.sh"
+SELF_UPDATE_URL="https://raw.githubusercontent.com/SnacOverflow/t-bash/master/runTests.sh"
 
 COLOR_NONE='\e[0m'
 COLOR_RED='\e[0;31m'
@@ -30,7 +30,7 @@ Custom checks are easily built using if-statements and the fail function:
 
 ..but there are some more pre-built asserts in extended_matchers.sh.
 
-For more detailed examples, see: https://github.com/meonlol/t-bash/examples
+For more detailed examples, see: https://github.com/SnacOverflow/t-bash/tree/master/examples
 
 Usage:
 ./runTests.sh [-hvamtceu] [test_files...]
