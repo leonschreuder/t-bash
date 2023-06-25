@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.com/leonschreuder/t-bash.svg?branch=master)](https://travis-ci.com/leonschreuder/t-bash)
+![Build Status](https://github.com/leonschreuder/t-bash/actions/workflows/run_tests.yml/badge.svg)
+
 
 
 # t-bash

@@ -1,0 +1,22 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Tests
+        run: script -qfc "/bin/sh -c 'TERM=xterm ./runTests.sh -v'" /dev/null
+  test_osx:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Tests
+        run: script -Fq /dev/null /bin/sh -c "TERM=xterm ./runTests.sh -v"
+

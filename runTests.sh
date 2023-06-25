@@ -91,7 +91,7 @@ main() {
 
   declare -i TOTAL_FAILING_TESTS=0
   [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
-  ! tty -s >/dev/null && export VERBOSE=true # if there is no terminal, don't print using updating lines
+  ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
 
   resolveTestFiles "$@"
 
