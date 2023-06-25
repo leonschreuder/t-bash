@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_VERSION="1.3.5"
 
-SELF_UPDATE_URL="https://raw.githubusercontent.com/SnacOverflow/t-bash/master/runTests.sh"
+SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
 COLOR_NONE='\e[0m'
 COLOR_RED='\e[0;31m'

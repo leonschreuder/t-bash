@@ -1,8 +1,13 @@
-[![Build Status](https://travis-ci.com/meonlol/t-bash.svg?branch=master)](https://travis-ci.com/meonlol/t-bash)
+[![Build Status](https://travis-ci.com/leonschreuder/t-bash.svg?branch=master)](https://travis-ci.com/leonschreuder/t-bash)
 
 
 # t-bash
 A tiny self-updating testing framework for bash.
+
+**NOTICE**
+
+This project is not updated regularly because it is basically feature-complete.
+I use it quite a lot still, so feel free to use it too.
 
 ## Usage
 A terminal says more than a 1000 words.
