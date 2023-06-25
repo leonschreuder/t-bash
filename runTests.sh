@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
@@ -91,7 +91,7 @@ main() {
 
   declare -i TOTAL_FAILING_TESTS=0
   [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
-  ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
+  ! tty -s >/dev/null && export VERBOSE=true # if there is no terminal, don't print using updating lines
 
   resolveTestFiles "$@"
 
@@ -380,54 +380,102 @@ exec /bin/bash selfUpdateScript.sh
 
 # Asserts {{{1
 
+# assert $1 equals $2
+#
+# $1 - expected
+# $2 - actual
+# $3 - message (optional)
 assertEquals() {
   [[ "$2" != "$1" ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "got:" "$2" "$3")"
 }
 
+# assert $1 does not equal $2
+#
+# $1 - expected
+# $2 - actual
+# $3 - message (optional)
 assertNotEquals() {
   [[ "$2" == "$1" ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "to not equal:" "$2" "$3")"
 }
 
+# assert $1 matches $2 (uses =~ bash builtin matching)
+#
+# $1 - expected regex
+# $2 - actual
+# $3 - message (optional)
 assertMatches() {
   [[ ! "$2" =~ $1 ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$1" "to match:" "$2" "$3")"
 }
 
+# assert $1 does NOT match $2 (uses =~ bash builtin matching)
+#
+# $1 - expected regex
+# $2 - actual
+# $3 - message (optional)
 assertNotMatches() {
   [[ "$2" =~ $1 ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$1" "to NOT match:" "$2" "$3")"
 }
 
+# assert file exists and is a file
+#
+# $1 - filepath
 assertFileExists() {
   [[ ! -e "$1" ]] && failFromStackDepth 2 "Expected file '$1' to exist."
   [[ ! -f "$1" ]] && failFromStackDepth 2 "Expected '$1' to be a file."
 }
+
+# assert file does not exist
+#
+# $1 - filepath
 assertFileNotExists() {
   [[ -e $1 ]] && failFromStackDepth 2 "Expected file '$1' to NOT exist."
 }
 
-
+# assert file exists and is a directory
+#
+# $1 - path
 assertDirExists() {
   [[ ! -e $1 ]] && failFromStackDepth 2 "Expected dir '$1' to exist."
   [[ ! -d $1 ]] && failFromStackDepth 2 "Expected '$1' to be a directory."
 }
+
+# assert dir does not exist
+#
+# $1 - path
 assertDirNotExists() {
   [[ -d $1 ]] && failFromStackDepth 2 "Expected dir '$1' to NOT exist."
 }
 
-
+# Make sure a file contains a specific string or matches a regex
+# 
+# $1 - matcher (uses grep with no flags)
+# $2 - file to look into
+# $3 - message (optional)
 assertFileContains() {
-  [[ ! -e "$2" ]] && failFromStackDepth 2 "File '$2' doesn't exist"
-  grep -q "$1" "$2" || failFromStackDepth 2 "Expected file '$2' contents to match (grep):\n    '$1'"
+  [[ "$3" != "" ]] && msg="$3\n"
+  [[ ! -e "$2" ]] && failFromStackDepth 2 "${msg}File '$2' doesn't exist"
+  grep -q "$1" "$2" || failFromStackDepth 2 "${msg}Expected file '$2' contents to match grep: '$1'"
 }
 
+# Make sure a file does NOT contain a specific string or doesn't matche a regex
+# 
+# $1 - matcher (uses grep with no flags)
+# $2 - file to look into
+# $3 - Optional custom message
 assertFileNotContains() {
-  [[ ! -e "$2" ]] && failFromStackDepth 2 "File '$2' doesn't exist"
-  grep -q "$1" "$2" && failFromStackDepth 2 "Expected file '$2' contents to NOT match (grep):\n    '$1'"
+  [[ "$3" != "" ]] && msg="$3\n"
+  [[ ! -e "$2" ]] && failFromStackDepth 2 "${msg}File '$2' doesn't exist"
+  grep -q "$1" "$2" && failFromStackDepth 2 "${msg}Expected file '$2' contents to NOT match grep: '$1'\n    found:$(grep "$1" "$2")"
 }
 
+# assert the last exist code was the provided one
+# 
+# $1 - expected exit code
+# $2 - message (optional)
 assertExitCodeEquals() {
   exitCode=$?
   re='?(-)+([0-9])'
@@ -437,6 +485,10 @@ assertExitCodeEquals() {
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
 }
 
+# assert the last exist code was NOT the one provided
+# 
+# $1 - expected exit code
+# $2 - message (optional)
 assertExitCodeNotEquals() {
   exitCode=$?
   re='?(-)+([0-9])'
@@ -446,6 +498,9 @@ assertExitCodeNotEquals() {
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
 }
 
+# explicityl fails this test. 
+# 
+# $1 - message
 fail() {
   failFromStackDepth 2 "$1"
 }

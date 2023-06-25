@@ -249,7 +249,9 @@ test_t1() { echo one; }
 test_t2() { echo -e "two\nthree"; }
 '
 
-  result=$(runMockTests)
+  result=$(
+    runMockTests
+  )
   resetEnvVars
 
   assertMatches "one" "$result"
@@ -706,7 +708,43 @@ createMockTestFile() {
 
 runMockTests() {
   clearEnvVars
-  cd $TMP_TEST; ../runTests.sh $@
+  cd $TMP_TEST
+  # the sed is because for some reason the faketty returns \r at the end
+  faketty "../runTests.sh" $@ | sed 's/\r$//'
+}
+
+# from: https://stackoverflow.com/a/60279429/3968618
+faketty () {
+  # Create a temporary file for storing the status code
+  tmp=$(mktemp)
+
+  # Ensure it worked or fail with status 99
+  [ "$tmp" ] || return 99
+
+  # Produce a script that runs the command provided to faketty as
+  # arguments and stores the status code in the temporary file
+  cmd="$(printf '%q ' "$@")"'; echo $? > '$tmp
+
+  # Run the script through /bin/sh with fake tty
+  if [ "$(uname)" = "Darwin" ]; then
+    # MacOS
+    script -Fq /dev/null /bin/sh -c "TERM=xterm $cmd"
+  else
+    script -qfc "/bin/sh -c $(printf "%q " "TERM=xterm $cmd")" /dev/null
+  fi
+
+  # Ensure that the status code was written to the temporary file or
+  # fail with status 99
+  [ -s $tmp ] || return 99
+
+  # Collect the status code from the temporary file
+  err=$(cat $tmp)
+
+  # Remove the temporary file
+  rm -f $tmp
+
+  # Return the status code
+  return $err
 }
 
 
