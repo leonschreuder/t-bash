@@ -37,6 +37,7 @@ Usage:
 
 -h                Print this help
 -v                What test prints what now?
+-s                Print summary at the end (usefull in case of lots of test output)
 -a                Run all tests, including those prefixed with testLarge_
 -m [testmatcher]  Runs only the tests that match the string.
 -t                Runs each test with 'time' command.
@@ -51,13 +52,16 @@ exit
 # main (files and suite) {{{1
 
 main() {
-  while getopts "hvam:tcewu" opt; do
+  while getopts "hvsam:tcewu" opt; do
     case $opt in
       h)
         help
         ;;
       v)
         export VERBOSE=true
+        ;;
+      s)
+        export SUMMARY=true
         ;;
       a)
         export RUN_LARGE_TESTS=true
@@ -106,6 +110,9 @@ main() {
 
   if [[ $TOTAL_FAILING_TESTS > 0 ]]; then
     echo $TOTAL_FAILING_TESTS failing tests in $TEST_FILE_COUNT files
+    if [[ "$SUMMARY" == "true" ]];then
+      echo "$SUMMARY_LINES"
+    fi
     echo TEST SUITE FAILED
     exit 1
   else
@@ -150,7 +157,9 @@ callTestsInFile() {
 
     if [[ $exitCode -ne 0 ]]; then
       failingTestCount+=1
-      [[ "$(cat $outFile)" == "" ]] &&
+      output="$(<$outFile)"
+      SUMMARY_LINES+="\n$output"
+      [[ "$output" == "" ]] &&
         failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee $outFile # tee also catches the exitWithError, so we continue with the file
     fi
 

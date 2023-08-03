@@ -282,6 +282,25 @@ two
 three
 suite successfull" "$result"
 }
+# Test summary {{{1
+
+testLarge__should_fail_suite_on_failing_test() {
+  createMockTestFile 'test_t1() { fail "error-message"; }'
+
+  result=$(runMockTests -vs)
+  resetEnvVars
+
+  assertMatches "FAIL: \./test_test1.sh\(1\) > test_t1" "$result"
+  assertMatches "TEST SUITE FAILED" "$result"
+  assertMatches "error-message" "$result"
+  assertMatches "1 failing tests in 1 files" "$result"
+  assertEquals "running ./test_test1.sh
+  test_t1
+FAIL: ./test_test1.sh(1) > test_t1
+    error-message
+1 failing tests in 1 files
+TEST SUITE FAILED" "$result"
+}
 
 # Matching tests {{{1
 
