@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SCRIPT_VERSION="1.3.6"
+SCRIPT_VERSION="1.3.7"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
@@ -11,7 +11,6 @@ help() {
   cat << EOF
 T-Bash   v$SCRIPT_VERSION
 A tiny self-updating testing framework for bash.
-
 Loads all files in the cwd that are prefixed with 'test_', and then executes
 all functions that are prefixed with 'test_' in those files. Slow/lage tests
 should be prefixed with 'testLarge_' and are only run when providing the -a
@@ -30,7 +29,7 @@ Custom checks are easily built using if-statements and the fail function:
 
 ..but there are some more pre-built asserts in extended_matchers.sh.
 
-For more detailed examples, see: https://github.com/SnacOverflow/t-bash/tree/master/examples
+For more detailed examples, see: https://github.com/leonschreuder/t-bash/tree/master/examples
 
 Usage:
 ./runTests.sh [-hvamtceu] [test_files...]
@@ -51,13 +50,16 @@ exit
 # main (files and suite) {{{1
 
 main() {
-  while getopts "hvam:tcewu" opt; do
+  while getopts "hvqam:tcewu" opt; do
     case $opt in
       h)
         help
         ;;
       v)
         export VERBOSE=true
+        ;;
+      q)
+        export T_QUIET=true
         ;;
       a)
         export RUN_LARGE_TESTS=true
@@ -92,6 +94,8 @@ main() {
   declare -i TOTAL_FAILING_TESTS=0
   [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
   ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
+
+  [[ "$T_QUIET" == true ]] && echo "Running tests quietly..."
 
   resolveTestFiles "$@"
 
@@ -216,7 +220,7 @@ tryCallForFile() {
 
 # We have to do some magic to print a dot for every test, but still print any test output correctly.
 initDotLine() {
-  if [[ "$VERBOSE" != true ]]; then
+  if [[ "$VERBOSE" != true ]] && [[ "$T_QUIET" != true ]]; then
     echo "" # start with a blank line onto which we can print the dots.
     # Tracks how many lines have been printed since the dot-line, so we know how many lines we have to go up to print more dots.
     PRINTED_LINE_COUNT_AFTER_DOTS+=1
@@ -225,7 +229,7 @@ initDotLine() {
 
 # Add a dot to the dot line, and jump back down to where we where
 updateDotLine() {
-  if [[ "$VERBOSE" != true ]]; then
+  if [[ "$VERBOSE" != true && "$T_QUIET" != true ]]; then
     tput cuu $PRINTED_LINE_COUNT_AFTER_DOTS # move the cursor up to the dot-line
     echo -ne "\r" # go to the start of the line
     printf "%0.s." $(seq 1 $testCount) # print a dot for every test that has run, overwriting previous dots
