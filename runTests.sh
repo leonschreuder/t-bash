@@ -91,35 +91,35 @@ main() {
   shift "$((OPTIND - 1))"
   unset OPTIND # make sure this doesn't get inherited into the tests
 
-  declare -i TOTAL_FAILING_TESTS=0
-  [[ "$TIMED" == "true" ]] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
+  TOTAL_FAILING_TESTS=0
+  [ "$TIMED" = "true" ] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
   ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
 
-  [[ "$T_QUIET" == true ]] && echo "Running tests quietly..."
+  [ "$T_QUIET" = true ] && echo "Running tests quietly..."
 
   resolveTestFiles "$@"
 
-  for test_file in ${TEST_FILES[@]}; do
+  for test_file in "${TEST_FILES[@]}"; do
     verboseEcho "running $test_file"
 
     # Load the test files in a sub-shell, to prevent overwriting functions
     # between files (primarily setup/teardown functions)
-    (callTestsInFile $test_file)
-    TOTAL_FAILING_TESTS+=$? # Will be 0 if no tests failed.
+    (callTestsInFile "$test_file")
+    TOTAL_FAILING_TESTS=$(( TOTAL_FAILING_TESTS+=$? )) # Will be 0 if no tests failed.
   done
 
-  if [[ $TOTAL_FAILING_TESTS > 0 ]]; then
-    echo $TOTAL_FAILING_TESTS failing tests in $TEST_FILE_COUNT files
-    echo TEST SUITE FAILED
+  if [ $TOTAL_FAILING_TESTS -gt 0 ]; then
+    echo "$TOTAL_FAILING_TESTS failing tests in $TEST_FILE_COUNT files"
+    echo "TEST SUITE FAILED"
     exit 1
   else
-    echo suite successfull
+    echo "suite successfull"
   fi
 }
 
 resolveTestFiles() {
-  if [[ "$@" != "" ]]; then
-    TEST_FILES=($@)
+  if [ "$*" != "" ]; then
+    TEST_FILES=("$@")
   else
     TEST_FILES=($(echo ./test_*))
   fi
@@ -132,7 +132,8 @@ callTestsInFile() {
   declare -i testCount=0 failingTestCount=0
   declare -i PRINTED_LINE_COUNT_AFTER_DOTS
 
-  source $1
+  #shellcheck disable=1090
+  source "$1"
   checkHasTests
   tryCallForFile "fileSetup"
   initDotLine
@@ -143,22 +144,23 @@ callTestsInFile() {
     verboseEcho "  $currTestFunc"
 
     # run the test, tee the output in a temp file, and capture the exit code of the first command
-    local outFile="$(mktemp)"
+    local outFile
+    outFile="$(mktemp)"
     if [[ "$TIMED" == "true" ]]; then
       # the {time;} is so the output of the time command is piped to tee as well
-      { time -p runTest $currTestFunc ; } 2>&1 | tee $outFile; exitCode=${PIPESTATUS[0]}
+      { time -p runTest "$currTestFunc" ; } 2>&1 | tee "$outFile"; exitCode=${PIPESTATUS[0]}
       echo # newline to separate tests for readability of time
     else
-      runTest $currTestFunc 2>&1 | tee $outFile; exitCode=${PIPESTATUS[0]}
+      runTest "$currTestFunc" 2>&1 | tee "$outFile"; exitCode=${PIPESTATUS[0]}
     fi
 
     if [[ $exitCode -ne 0 ]]; then
       failingTestCount+=1
-      [[ "$(cat $outFile)" == "" ]] &&
-        failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee $outFile # tee also catches the exitWithError, so we continue with the file
+      [[ "$(cat "$outFile")" == "" ]] &&
+        failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee "$outFile" # tee also catches the exitWithError, so we continue with the file
     fi
 
-    countLinesMoved "$(cat $outFile)"
+    countLinesMoved "$(cat "$outFile")"
   done
 
   tryCallForFile "fileTeardown"
@@ -212,7 +214,11 @@ tryCallForFile() {
   if funcExists "$1"; then
     verboseEcho "  $1"
     $1
-    [[ $? != 0 ]] && echo "FAIL: $1 failed." && exit $(getTestFuncs | wc -l)
+    exitCode=$?
+    if [[ $exitCode != 0 ]]; then
+      echo "FAIL: $1 failed."
+      exit "$(getTestFuncs | wc -l)"
+    fi
   fi
 }
 
@@ -240,7 +246,7 @@ updateDotLine() {
 
 countLinesMoved() {
   TEST_LINE_COUNT=$(echo -e "$@" | wc -l)
-  [[ -n $@ ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
+  [[ -n "$*" ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
 }
 
 # Failing {{{1
@@ -299,8 +305,8 @@ formatAValueBValue() {
       # Not multiline, but enough output we should print values on seperate
       # lines. Indent to make visualy comparing easyer.
       width=$(getWithOfWidestString "$nameA" "$nameB")
-      echo "$(rightAlign $width "$nameA") '$valueA'"
-      echo "$(rightAlign $width "$nameB") '$valueB'"
+      echo "$(rightAlign "$width" "$nameA") '$valueA'"
+      echo "$(rightAlign "$width" "$nameB") '$valueB'"
     else
       # Output is really short. So we can print inlined
       echo "$nameA '$valueA', $nameB '$valueB'" # Not so much output. Print all in one line, comma separated
@@ -311,9 +317,9 @@ formatAValueBValue() {
 printExtendedDiff() {
   if hash wdiff 2>/dev/null; then
     if hash colordiff; then
-      echo "$(wdiff -n <(echo "$1") <(echo "$2") | colordiff)"
+      wdiff -n <(echo "$1") <(echo "$2") | colordiff
     else
-      echo "$(wdiff <(echo "$1") <(echo "$2"))"
+      wdiff <(echo "$1") <(echo "$2")
     fi
   else
     exitWithError "No extended diff-tool found. Supports 'wdiff' with optional 'colordiff'."
@@ -323,7 +329,7 @@ printExtendedDiff() {
 # Helpers {{{1
 
 funcExists() {
-  declare -F -f $1 > /dev/null
+  declare -F -f "$1" > /dev/null
 }
 
 getWithOfWidestString() {
@@ -333,7 +339,7 @@ getWithOfWidestString() {
 rightAlign() {
   declare -i leftIndent=$1-${#2}
   [[ $leftIndent -gt 0 ]] && printf " %.0s" $(seq 1 $leftIndent)
-  echo $2
+  echo "$2"
 }
 
 verboseEcho() {
@@ -341,7 +347,7 @@ verboseEcho() {
 }
 
 exitWithError() {
-  >&2 echo -e "ERROR: $@"
+  >&2 echo -e "ERROR: $*"
   exit 1
 }
 
@@ -352,17 +358,19 @@ runSelfUpdate() {
   echo "Performing self-update..."
 
   echo "Downloading latest version..."
-  curl $SELF_UPDATE_URL -o $0.tmp
-  if [[ $? != 0 ]]; then
+  curl $SELF_UPDATE_URL -o "$0.tmp"
+  exitCode=$?
+  if [[ $exitCode != 0 ]]; then
     exitWithError "Update failed: Error downloading."
   fi
 
   # Copy over modes from old version
-  filePermissions=$(stat -c '%a' $0 2> /dev/null)
-  if [[ $? != 0 ]]; then
-    filePermissions=$(stat -f '%A' $0)
+  filePermissions=$(stat -c '%a' "$0" 2> /dev/null)
+  exitCode=$?
+  if [[ $exitCode != 0 ]]; then
+    filePermissions=$(stat -f '%A' "$0")
   fi
-  if ! chmod $filePermissions "$0.tmp" ; then
+  if ! chmod "$filePermissions" "$0.tmp" ; then
     exitWithError "Update failed: Error setting access-rights on $0.tmp"
   fi
 
@@ -483,9 +491,10 @@ assertFileNotContains() {
 assertExitCodeEquals() {
   exitCode=$?
   re='?(-)+([0-9])'
+  #shellcheck disable=2053
   [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode != $1 ]] &&
+  [[ $exitCode != "$1" ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
 }
 
@@ -496,9 +505,10 @@ assertExitCodeEquals() {
 assertExitCodeNotEquals() {
   exitCode=$?
   re='?(-)+([0-9])'
+  #shellcheck disable=2053
   [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode == $1 ]] &&
+  [[ $exitCode == "$1" ]] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
 }
 
@@ -511,7 +521,7 @@ fail() {
 
 # Main {{{1
 # Main entry point (excluded from tests)
-if [[ "$0" == "$BASH_SOURCE" ]]; then
-  main $@
+if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+  main "$@"
 fi
 # vim:fdm=marker

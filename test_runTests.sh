@@ -459,6 +459,7 @@ test__should_call_setup_and_teardown() (
 
 testLarge__should_print_time() {
   createMockTestFile "test_t1() { :; }"
+  export LC_ALL=C # number formatting always with dot
 
   result=$(runMockTests -t)
   resetEnvVars
@@ -476,6 +477,7 @@ suite successfull" "$result"
 
 testLarge__should_print_time_verbose() {
   createMockTestFile "test_t1() { :; }"
+  export LC_ALL=C # number formatting always with dot
 
   result=$(runMockTests -vt)
   resetEnvVars
@@ -590,7 +592,7 @@ test__equals__should_not_print_anything_when_equal() {
 }
 
 test__equals__should_print_fail_when_unequals() {
-  assertLineNo=$(($LINENO+1))
+  assertLineNo=$(( LINENO + 1))
   result=$(assertEquals "some strin" "some string")
 
   # This gets really hard to read.
@@ -600,7 +602,7 @@ test__equals__should_print_fail_when_unequals() {
 }
 
 test__equals__should_print_log_if_provided() {
-  assertLineNo=$(($LINENO+1))
+  assertLineNo=$(( LINENO + 1 ))
   result=$(assertEquals "some strin" "some string" "Error. Not found.")
 
   # This gets really hard to read.
