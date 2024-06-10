@@ -286,7 +286,7 @@ suite successfull" "$result"
 # Matching tests {{{1
 
 test__has_match_should_only_get_matching_test() (
-  compgen() { echo -e "test_mock_some_function\ntestLarge_mock_other_function" ;}
+  set() { echo -e "test_mock_some_function ()\ntestLarge_mock_other_function ()" ;}
   unset RUN_LARGE_TESTS
 
   assertEquals "test_mock_some_function" "$(getTestFuncs)"
