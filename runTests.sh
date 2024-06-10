@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 SCRIPT_VERSION="1.3.7"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
@@ -129,6 +129,7 @@ resolveTestFiles() {
 # tests in file {{{1
 
 callTestsInFile() {
+  testDots=""
   declare -i testCount=0 failingTestCount=0
   declare -i PRINTED_LINE_COUNT_AFTER_DOTS
 
@@ -139,14 +140,15 @@ callTestsInFile() {
   initDotLine
 
   for currTestFunc in $(getTestFuncs); do
+    testDots+="."
     testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine
+    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
     verboseEcho "  $currTestFunc"
 
     # run the test, tee the output in a temp file, and capture the exit code of the first command
     local outFile
     outFile="$(mktemp)"
-    if [[ "$TIMED" == "true" ]]; then
+    if [ "$TIMED" = "true" ]; then
       # the {time;} is so the output of the time command is piped to tee as well
       { time -p runTest "$currTestFunc" ; } 2>&1 | tee "$outFile"; exitCode=${PIPESTATUS[0]}
       echo # newline to separate tests for readability of time
@@ -154,9 +156,9 @@ callTestsInFile() {
       runTest "$currTestFunc" 2>&1 | tee "$outFile"; exitCode=${PIPESTATUS[0]}
     fi
 
-    if [[ $exitCode -ne 0 ]]; then
+    if [ "$exitCode" -ne 0 ]; then
       failingTestCount+=1
-      [[ "$(cat "$outFile")" == "" ]] &&
+      [ "$(cat "$outFile")" = "" ] &&
         failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee "$outFile" # tee also catches the exitWithError, so we continue with the file
     fi
 
@@ -172,25 +174,21 @@ callTestsInFile() {
 }
 
 getTestFuncs() {
-  for currFunc in $(compgen -A function); do
-    if [[ $currFunc == "test_"* || $currFunc == "testLarge_"* ]]; then #only consider test functions
-      if [[ -n ${MATCH+x} ]]; then
-        # when in matching mode, ignore other params
-        if [[ $currFunc =~ $MATCH ]]; then
-          echo "$currFunc"
-        fi
-      else
-        if [[ "$RUN_LARGE_TESTS" == "true" || $currFunc == "test_"* ]]; then
-          echo "$currFunc"
-        fi
-      fi
-    fi
-  done
+  if [ "$MATCH" != "" ]; then
+    set | grep '^test\(Large\)\?_[a-zA-Z0-9_]\+\s\+()' | grepFunctionName | grep "$MATCH"
+  elif [ "$RUN_LARGE_TESTS" = "true" ]; then
+    set | grep '^test\(Large\)\?_[a-zA-Z0-9_]\+\s\+()' | grepFunctionName
+  else
+    set | grep '^test_[a-zA-Z0-9_]\+\s\+()' | grepFunctionName
+  fi
+}
+
+grepFunctionName() {
+  grep -o '^[a-zA-Z_][a-zA-Z0-9_]\+'
 }
 
 checkHasTests() {
-  funcs="$(getTestFuncs)"
-  if [[ "$funcs" == "" || "$(echo "$funcs" | wc -l )" -lt 1 ]]; then
+  if [ "$(getTestFuncs | wc -l)" -lt 1 ]; then
     echo "no tests found"
     exit 0
   fi
@@ -213,9 +211,7 @@ callIfExists() {
 tryCallForFile() {
   if funcExists "$1"; then
     verboseEcho "  $1"
-    $1
-    exitCode=$?
-    if [[ $exitCode != 0 ]]; then
+    if ! $1 ;then
       echo "FAIL: $1 failed."
       exit "$(getTestFuncs | wc -l)"
     fi
@@ -226,7 +222,7 @@ tryCallForFile() {
 
 # We have to do some magic to print a dot for every test, but still print any test output correctly.
 initDotLine() {
-  if [[ "$VERBOSE" != true ]] && [[ "$T_QUIET" != true ]]; then
+  if [ "$VERBOSE" != true ] && [ "$T_QUIET" != true ]; then
     echo "" # start with a blank line onto which we can print the dots.
     # Tracks how many lines have been printed since the dot-line, so we know how many lines we have to go up to print more dots.
     PRINTED_LINE_COUNT_AFTER_DOTS+=1
@@ -235,11 +231,13 @@ initDotLine() {
 
 # Add a dot to the dot line, and jump back down to where we where
 updateDotLine() {
-  if [[ "$VERBOSE" != true && "$T_QUIET" != true ]]; then
-    tput cuu $PRINTED_LINE_COUNT_AFTER_DOTS # move the cursor up to the dot-line
+  linesUpToDotLine="$1"
+  dotsString="$2"
+  if [ "$VERBOSE" != true ] && [ "$T_QUIET" != true ]; then
+    tput cuu "$linesUpToDotLine" # move the cursor up to the dot-line
     echo -ne "\r" # go to the start of the line
-    printf "%0.s." $(seq 1 $testCount) # print a dot for every test that has run, overwriting previous dots
-    tput cud $PRINTED_LINE_COUNT_AFTER_DOTS # move the cursor back down to where we where
+    echo -n "$dotsString" # print a dot for every test that has run, overwriting previous dots
+    tput cud "$linesUpToDotLine" # move the cursor back down to where we where
     echo -ne "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
   fi
 }
@@ -247,6 +245,10 @@ updateDotLine() {
 countLinesMoved() {
   TEST_LINE_COUNT=$(echo -e "$@" | wc -l)
   [[ -n "$*" ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
+}
+
+countLinesMoved2() {
+  file="$1"
 }
 
 # Failing {{{1

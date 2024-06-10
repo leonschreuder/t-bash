@@ -286,7 +286,7 @@ suite successfull" "$result"
 # Matching tests {{{1
 
 test__has_match_should_only_get_matching_test() (
-  compgen() { echo -e "test_mock_some_function\ntestLarge_mock_other_function" ;}
+  set() { echo -e "test_mock_some_function ()\ntestLarge_mock_other_function ()" ;}
   unset RUN_LARGE_TESTS
 
   assertEquals "test_mock_some_function" "$(getTestFuncs)"
@@ -553,6 +553,45 @@ tabIndent¬"
 }
 
 
+# Format dotline {{{1
+
+test_should_print_dots_for_every_test() {
+
+  # first test
+  result="$(
+    testDots=""
+    declare -i testCount=0 failingTestCount=0
+    declare -i PRINTED_LINE_COUNT_AFTER_DOTS
+    # TODO: only sets envvar we don't really need
+    initDotLine
+
+    testDots+="."
+    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
+    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+
+    local outFile
+    outFile="$(mktemp)"
+    echo -e "line\nline\nline" > "$outFile"
+    countLinesMoved "$(cat "$outFile")"
+
+    testDots+="."
+    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
+    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+
+    local outFile
+    outFile="$(mktemp)"
+    echo -e "line\nline\nline" > "$outFile"
+    countLinesMoved "$(cat "$outFile")"
+
+    testDots+="."
+    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
+    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+  )"
+  assertEquals "
+[1A.[1B[4A..[4B[7A...[7B" "$result"
+}
+
+# }}}
 # Helper functions {{{1
 
 test_logger_should_only_log_when_verbose() {
