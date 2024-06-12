@@ -129,6 +129,7 @@ resolveTestFiles() {
 # tests in file {{{1
 
 callTestsInFile() {
+  testDots=""
   declare -i testCount=0 failingTestCount=0
   declare -i PRINTED_LINE_COUNT_AFTER_DOTS
 
@@ -139,8 +140,9 @@ callTestsInFile() {
   initDotLine
 
   for currTestFunc in $(getTestFuncs); do
+    testDots+="."
     testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine
+    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
     verboseEcho "  $currTestFunc"
 
     # run the test, tee the output in a temp file, and capture the exit code of the first command
@@ -229,11 +231,13 @@ initDotLine() {
 
 # Add a dot to the dot line, and jump back down to where we where
 updateDotLine() {
+  linesUpToDotLine="$1"
+  dotsString="$2"
   if [ "$VERBOSE" != true ] && [ "$T_QUIET" != true ]; then
-    tput cuu $PRINTED_LINE_COUNT_AFTER_DOTS # move the cursor up to the dot-line
+    tput cuu "$linesUpToDotLine" # move the cursor up to the dot-line
     echo -ne "\r" # go to the start of the line
-    printf "%0.s." $(seq 1 $testCount) # print a dot for every test that has run, overwriting previous dots
-    tput cud $PRINTED_LINE_COUNT_AFTER_DOTS # move the cursor back down to where we where
+    echo -n "$dotsString" # print a dot for every test that has run, overwriting previous dots
+    tput cud "$linesUpToDotLine" # move the cursor back down to where we where
     echo -ne "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
   fi
 }
@@ -241,6 +245,10 @@ updateDotLine() {
 countLinesMoved() {
   TEST_LINE_COUNT=$(echo -e "$@" | wc -l)
   [[ -n "$*" ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
+}
+
+countLinesMoved2() {
+  file="$1"
 }
 
 # Failing {{{1
