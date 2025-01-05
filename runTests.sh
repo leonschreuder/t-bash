@@ -1,5 +1,7 @@
-#!/usr/bin/bash
-SCRIPT_VERSION="1.3.7"
+#!/usr/bin/env bash
+set -u
+
+SCRIPT_VERSION="1.3.8"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
@@ -7,10 +9,20 @@ COLOR_NONE='\e[0m'
 COLOR_RED='\e[0;31m'
 COLOR_GREEN='\e[0;32m'
 
+VERBOSE=false
+T_QUIET=false
+MATCH=""
+RUN_LARGE_TESTS=false
+TIMED=false
+COLOR_OUTPUT=false
+EXTENDED_DIFF=false
+HIGHLIGHT_WHITESPACE=false
+
 help() {
   cat << EOF
 T-Bash   v$SCRIPT_VERSION
 A tiny self-updating testing framework for bash.
+
 Loads all files in the cwd that are prefixed with 'test_', and then executes
 all functions that are prefixed with 'test_' in those files. Slow/lage tests
 should be prefixed with 'testLarge_' and are only run when providing the -a
@@ -95,7 +107,7 @@ main() {
   [ "$TIMED" = "true" ] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
   ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
 
-  [ "$T_QUIET" = true ] && echo "Running tests quietly..."
+  if [ "$T_QUIET" = true ]; then echo "Running tests quietly..."; fi
 
   resolveTestFiles "$@"
 
@@ -131,7 +143,7 @@ resolveTestFiles() {
 callTestsInFile() {
   testDots=""
   declare -i testCount=0 failingTestCount=0
-  declare -i PRINTED_LINE_COUNT_AFTER_DOTS
+  declare -i PRINTED_LINE_COUNT_AFTER_DOTS=0
 
   #shellcheck disable=1090
   source "$1"
@@ -279,14 +291,15 @@ formatAValueBValue() {
   valueA="$2"
   nameB="$3"
   valueB="$4"
-  message="$5"
+  msg=""
+  if [ "$#" -gt 4 ]; then msg="$5"; fi
 
   if [[ "$HIGHLIGHT_WHITESPACE" == "true" ]]; then
     valueA="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueA")"
     valueB="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueB")"
   fi
 
-  [[ "$message" != "" ]] && echo "$message"
+  if [ "$msg" != "" ]; then echo "$msg"; fi
 
   if [[ "$EXTENDED_DIFF" == "true" ]]; then
     printExtendedDiff "$valueA" "$valueB"
@@ -400,8 +413,11 @@ exec /bin/bash selfUpdateScript.sh
 # $2 - actual
 # $3 - message (optional)
 assertEquals() {
-  [[ "$2" != "$1" ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "got:" "$2" "$3")"
+  local exp="$1"; shift
+  local act="$1"; shift
+  if [ "$act" != "$exp" ]; then
+    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$exp" "got:" "$act" "$@")"
+  fi
 }
 
 # assert $1 does not equal $2
@@ -410,8 +426,11 @@ assertEquals() {
 # $2 - actual
 # $3 - message (optional)
 assertNotEquals() {
-  [[ "$2" == "$1" ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$1" "to not equal:" "$2" "$3")"
+  local exp="$1"; shift
+  local act="$1"; shift
+  if [ "$act" = "$exp" ]; then
+    failFromStackDepth 2 "$(formatAValueBValue "expected:" "$exp" "to not equal:" "$act" "$@")"
+  fi
 }
 
 # assert $1 matches $2 (uses =~ bash builtin matching)
@@ -420,8 +439,10 @@ assertNotEquals() {
 # $2 - actual
 # $3 - message (optional)
 assertMatches() {
-  [[ ! "$2" =~ $1 ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$1" "to match:" "$2" "$3")"
+  local regex="$1"; shift
+  local act="$1"; shift
+  [[ ! "$act" =~ $regex ]] &&
+    failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$regex" "to match:" "$act" "$@")"
 }
 
 # assert $1 does NOT match $2 (uses =~ bash builtin matching)
@@ -430,8 +451,10 @@ assertMatches() {
 # $2 - actual
 # $3 - message (optional)
 assertNotMatches() {
-  [[ "$2" =~ $1 ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$1" "to NOT match:" "$2" "$3")"
+  local regex="$1"; shift
+  local act="$1"; shift
+  [[ "$act" =~ $regex ]] &&
+    failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$regex" "to NOT match:" "$act" "$@")"
 }
 
 # assert file exists and is a file
@@ -470,8 +493,9 @@ assertDirNotExists() {
 # $2 - file to look into
 # $3 - message (optional)
 assertFileContains() {
-  [[ "$3" != "" ]] && msg="$3\n"
-  [[ ! -e "$2" ]] && failFromStackDepth 2 "${msg}File '$2' doesn't exist"
+  local msg=""
+  if [ "$#" -gt 2 ]; then msg="$3\n"; fi
+  if [ ! -e "$2" ]; then failFromStackDepth 2 "${msg}File '$2' doesn't exist"; fi
   grep -q "$1" "$2" || failFromStackDepth 2 "${msg}Expected file '$2' contents to match grep: '$1'"
 }
 
@@ -481,8 +505,9 @@ assertFileContains() {
 # $2 - file to look into
 # $3 - Optional custom message
 assertFileNotContains() {
-  [[ "$3" != "" ]] && msg="$3\n"
-  [[ ! -e "$2" ]] && failFromStackDepth 2 "${msg}File '$2' doesn't exist"
+  local msg=""
+  if [ "$#" -gt 2 ]; then msg="$3\n"; fi
+  if [ ! -e "$2" ]; then failFromStackDepth 2 "${msg}File '$2' doesn't exist"; fi
   grep -q "$1" "$2" && failFromStackDepth 2 "${msg}Expected file '$2' contents to NOT match grep: '$1'\n    found:$(grep "$1" "$2")"
 }
 
