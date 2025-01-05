@@ -26,13 +26,8 @@ teardown() {
 }
 
 clearEnvVars() {
-  unset VERBOSE
-  unset TIMED
-  unset MATCH
-  unset RUN_LARGE_TESTS
-  unset EXTENDED_DIFF
-  unset COLOR_OUTPUT
-  unset HIGHLIGHT_WHITESPACE
+  RUN_LARGE_TESTS=false
+  VERBOSE=false
 }
 
 resetEnvVars() {
@@ -287,7 +282,7 @@ suite successfull" "$result"
 
 test__has_match_should_only_get_matching_test() (
   set() { echo -e "test_mock_some_function ()\ntestLarge_mock_other_function ()" ;}
-  unset RUN_LARGE_TESTS
+  RUN_LARGE_TESTS=false
 
   assertEquals "test_mock_some_function" "$(getTestFuncs)"
 )
@@ -595,6 +590,7 @@ test_should_print_dots_for_every_test() {
 # Helper functions {{{1
 
 test_logger_should_only_log_when_verbose() {
+  VERBOSE=false
   result=$(verboseEcho "message")
   assertEquals "" "$result"
 
