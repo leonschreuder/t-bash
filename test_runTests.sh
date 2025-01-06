@@ -557,7 +557,7 @@ test_should_print_dots_for_every_test() {
     testDots=""
     declare -i testCount=0 failingTestCount=0
     declare -i PRINTED_LINE_COUNT_AFTER_DOTS
-    # TODO: only sets envvar we don't really need
+    # TODO: only sets envvar we do not really need
     initDotLine
 
     testDots+="."
@@ -728,6 +728,9 @@ test__asserting_exit_code() {
 
   testF
   assertExitCodeNotEquals 1
+
+  assertEquals 'FAIL: ./test_runTests.sh(733) > test__asserting_exit_code
+    Provided expected exit code is invalid: '\''one'\' "$(assertExitCodeNotEquals "one" 2>&1)"
 }
 
 

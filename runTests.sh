@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -u
+set -uo pipefail
 
-SCRIPT_VERSION="1.3.8"
+SCRIPT_VERSION="1.3.9"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
@@ -104,8 +104,8 @@ main() {
   unset OPTIND # make sure this doesn't get inherited into the tests
 
   TOTAL_FAILING_TESTS=0
-  [ "$TIMED" = "true" ] && export VERBOSE=true # doesn't make sense to print time per test, but not the test name
-  ! tty -s && export VERBOSE=true # if there is no terminal, don't print using updating lines
+  if [ "$TIMED" = "true" ]; then export VERBOSE=true; fi # doesn't make sense to print time per test, but not the test name
+  if ! tty -s; then export VERBOSE=true; fi # if there is no terminal, don't print using updating lines
 
   if [ "$T_QUIET" = true ]; then echo "Running tests quietly..."; fi
 
@@ -170,8 +170,9 @@ callTestsInFile() {
 
     if [ "$exitCode" -ne 0 ]; then
       failingTestCount+=1
-      [ "$(cat "$outFile")" = "" ] &&
+      if [ "$(cat "$outFile")" = "" ]; then
         failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee "$outFile" # tee also catches the exitWithError, so we continue with the file
+      fi
     fi
 
     countLinesMoved "$(cat "$outFile")"
@@ -256,7 +257,7 @@ updateDotLine() {
 
 countLinesMoved() {
   TEST_LINE_COUNT=$(echo -e "$@" | wc -l)
-  [[ -n "$*" ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
+  if [ -n "$*" ]; then PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT; fi
 }
 
 countLinesMoved2() {
@@ -348,17 +349,25 @@ funcExists() {
 }
 
 getWithOfWidestString() {
-    [[ ${#1} -gt ${#2} ]] && echo ${#1} || echo ${#2}
+  if [ ${#1} -gt ${#2} ]; then
+    echo ${#1}
+  else
+    echo ${#2}
+  fi
 }
 
 rightAlign() {
   declare -i leftIndent=$1-${#2}
-  [[ $leftIndent -gt 0 ]] && printf " %.0s" $(seq 1 $leftIndent)
+  if [ $leftIndent -gt 0 ]; then
+    printf " %.0s" $(seq 1 $leftIndent)
+  fi
   echo "$2"
 }
 
 verboseEcho() {
-  [[ "$VERBOSE" == true ]] && echo "$1"
+  if [ "$VERBOSE" = true ]; then
+    echo "$1"
+  fi
 }
 
 exitWithError() {
@@ -375,14 +384,14 @@ runSelfUpdate() {
   echo "Downloading latest version..."
   curl $SELF_UPDATE_URL -o "$0.tmp"
   exitCode=$?
-  if [[ $exitCode != 0 ]]; then
+  if [ $exitCode -ne 0 ]; then
     exitWithError "Update failed: Error downloading."
   fi
 
   # Copy over modes from old version
   filePermissions=$(stat -c '%a' "$0" 2> /dev/null)
   exitCode=$?
-  if [[ $exitCode != 0 ]]; then
+  if [ $exitCode -ne 0 ]; then
     filePermissions=$(stat -f '%A' "$0")
   fi
   if ! chmod "$filePermissions" "$0.tmp" ; then
@@ -441,8 +450,9 @@ assertNotEquals() {
 assertMatches() {
   local regex="$1"; shift
   local act="$1"; shift
-  [[ ! "$act" =~ $regex ]] &&
+  if [[ ! "$act" =~ $regex ]]; then
     failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$regex" "to match:" "$act" "$@")"
+  fi
 }
 
 # assert $1 does NOT match $2 (uses =~ bash builtin matching)
@@ -453,38 +463,39 @@ assertMatches() {
 assertNotMatches() {
   local regex="$1"; shift
   local act="$1"; shift
-  [[ "$act" =~ $regex ]] &&
+  if [[ "$act" =~ $regex ]]; then
     failFromStackDepth 2 "$(formatAValueBValue "expected regex:" "$regex" "to NOT match:" "$act" "$@")"
+  fi
 }
 
 # assert file exists and is a file
 #
 # $1 - filepath
 assertFileExists() {
-  [[ ! -e "$1" ]] && failFromStackDepth 2 "Expected file '$1' to exist."
-  [[ ! -f "$1" ]] && failFromStackDepth 2 "Expected '$1' to be a file."
+  if [ ! -e "$1" ]; then failFromStackDepth 2 "Expected file '$1' to exist."; fi
+  if [ ! -f "$1" ]; then failFromStackDepth 2 "Expected '$1' to be a file."; fi
 }
 
 # assert file does not exist
 #
 # $1 - filepath
 assertFileNotExists() {
-  [[ -e $1 ]] && failFromStackDepth 2 "Expected file '$1' to NOT exist."
+  if [ -e $1 ]; then failFromStackDepth 2 "Expected file '$1' to NOT exist."; fi
 }
 
 # assert file exists and is a directory
 #
 # $1 - path
 assertDirExists() {
-  [[ ! -e $1 ]] && failFromStackDepth 2 "Expected dir '$1' to exist."
-  [[ ! -d $1 ]] && failFromStackDepth 2 "Expected '$1' to be a directory."
+  if [ ! -e $1 ]; then failFromStackDepth 2 "Expected dir '$1' to exist."; fi
+  if [ ! -d $1 ]; then failFromStackDepth 2 "Expected '$1' to be a directory."; fi
 }
 
 # assert dir does not exist
 #
 # $1 - path
 assertDirNotExists() {
-  [[ -d $1 ]] && failFromStackDepth 2 "Expected dir '$1' to NOT exist."
+  if [ -d $1 ]; then failFromStackDepth 2 "Expected dir '$1' to NOT exist."; fi
 }
 
 # Make sure a file contains a specific string or matches a regex
@@ -517,12 +528,10 @@ assertFileNotContains() {
 # $2 - message (optional)
 assertExitCodeEquals() {
   exitCode=$?
-  re='?(-)+([0-9])'
-  #shellcheck disable=2053
-  [[ $1 != $re ]] &&
-    failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode != "$1" ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
+  exp="$1"; shift
+  if [ $exitCode -ne $exp ]; then
+    failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$exp" "got:" "$exitCode" "$2")"
+  fi
 }
 
 # assert the last exist code was NOT the one provided
@@ -531,12 +540,16 @@ assertExitCodeEquals() {
 # $2 - message (optional)
 assertExitCodeNotEquals() {
   exitCode=$?
-  re='?(-)+([0-9])'
-  #shellcheck disable=2053
-  [[ $1 != $re ]] &&
-    failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode == "$1" ]] &&
-    failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
+  exp="$1"; shift
+  # unlike the positive case, which fails descriptivly even when no number is
+  # provided, here we also check if it's even a number by using -eq (which only
+  # works with numbers) comparing it to itself
+  if ! [ "$exp" -eq "$exp" ] 2>/dev/null; then 
+    failFromStackDepth 2 "Provided expected exit code is invalid: '$exp'"
+  fi
+  if [ $exitCode = "$exp" ]; then
+    failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$exp" "but got:" "$exitCode" "$@")"
+  fi
 }
 
 # explicityl fails this test. 
