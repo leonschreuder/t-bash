@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
-
-SCRIPT_VERSION="1.3.9"
+SCRIPT_VERSION="1.4.0"
 
 SELF_UPDATE_URL="https://raw.githubusercontent.com/leonschreuder/t-bash/master/runTests.sh"
 
@@ -29,17 +27,30 @@ should be prefixed with 'testLarge_' and are only run when providing the -a
 flag.
 
 Built-in matchers:
-assertEquals "equality" "equality"        # all your basic comparison needs.
-assertMatches "^ma.*ng$" "matching"       # I want to practice my regex
-assertNotEquals "same" "equality"         # Anything but this.
-assertNotMatches "^ma.*ng$" "equality"    # I know regex so well I'm sure this works. 
-fail "msg"                                # I write my own damd checks, thank you!
+
+assertEquals "equality" "equality"              # All your basic comparison needs.
+assertNotEquals "same" "equality"               # Not like this. Not like this.
+
+assertFileExists "path/to/existingFile"         # Is there anybody out there?
+assertFileNotExists "path/to/notExistingDir/"   # Existance is futile.
+
+assertDirExists "path/to/existingDir/"          # To dir or not to dir, that is the question.
+assertDirNotExists "path/to/notExistingDir/"    # The dir shall not pass!
+
+assertMatches "^ma.*ng$" "matching"             # I want to practice my regex
+assertNotMatches "^ma.*ng$" "equality"          # My regex definitely works
+
+assertFileContains "match" "path/to/file"       # It's what's on the inside that counts.
+assertFileNotContains "noMatch" "path/to/file"  # It's what's NOT on the inside that counts.
+
+assertExitCodeEquals "exitCode"                 # Checks the exite code of the previous command was this
+assertExitCodeNotEquals "exitCodeNum"           # Tell me if you've heard this one before
+
+fail "msg"                                      # I write my own damd checks, thank you!
 
 Custom checks are easily built using if-statements and the fail function:
 
 [[ ! -f ./my/marker.txt ]] && fail "Where did my file go?"
-
-..but there are some more pre-built asserts in extended_matchers.sh.
 
 For more detailed examples, see: https://github.com/leonschreuder/t-bash/tree/master/examples
 
@@ -530,7 +541,7 @@ assertExitCodeEquals() {
   exitCode=$?
   exp="$1"; shift
   if [ $exitCode -ne $exp ]; then
-    failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$exp" "got:" "$exitCode" "$2")"
+    failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$exp" "got:" "$exitCode" "$@")"
   fi
 }
 
