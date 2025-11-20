@@ -1,5 +1,12 @@
+#!/usr/bin/env bash
 # Should a testing framework be tested with itself? Probably not, but it does
 # give you a good example of how to use it.
+
+# first set some strict options, so the script must also follow these rules
+# without needing to force them on other scripts
+
+set -uo pipefail
+
 _REAL_VERBOSE=$VERBOSE
 _REAL_TIMED=$TIMED
 _REAL_MATCH=$MATCH
@@ -729,7 +736,7 @@ test__asserting_exit_code() {
   testF
   assertExitCodeNotEquals 1
 
-  assertEquals 'FAIL: ./test_runTests.sh(733) > test__asserting_exit_code
+  assertEquals 'FAIL: ./test_runTests.sh(740) > test__asserting_exit_code
     Provided expected exit code is invalid: '\''one'\' "$(assertExitCodeNotEquals "one" 2>&1)"
 }
 
