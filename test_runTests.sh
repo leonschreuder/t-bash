@@ -560,32 +560,28 @@ test_should_print_dots_for_every_test() {
   # first test
   result="$(
     testDots=""
-    declare -i testCount=0 failingTestCount=0
-    declare -i PRINTED_LINE_COUNT_AFTER_DOTS
-    # TODO: only sets envvar we don't really need
     initDotLine
+    linesUpToDotline=1
 
-    testDots+="."
-    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
-
-    local outFile
-    outFile="$(mktemp)"
-    echo -e "line\nline\nline" > "$outFile"
-    countLinesMoved "$(cat "$outFile")"
-
-    testDots+="."
-    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+    testDots=$(incrementTestDots "$testDots")
+    updateDotLine "$linesUpToDotline" "$testDots"
 
     local outFile
     outFile="$(mktemp)"
     echo -e "line\nline\nline" > "$outFile"
-    countLinesMoved "$(cat "$outFile")"
+    linesUpToDotline="$(countLinesMoved "$outFile" "$linesUpToDotline")"
 
-    testDots+="."
-    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+    testDots=$(incrementTestDots "$testDots")
+    updateDotLine "$linesUpToDotline" "$testDots"
+
+    local outFile
+    outFile="$(mktemp)"
+    echo -e "line\nline\nline" > "$outFile"
+    linesUpToDotline="$(countLinesMoved "$outFile" "$linesUpToDotline")"
+
+    testDots=$(incrementTestDots "$testDots")
+    updateDotLine "$linesUpToDotline" "$testDots"
+    linesUpToDotline="$(countLinesMoved "$outFile" "$linesUpToDotline")"
   )"
   assertEquals "
 [1A.[1B[4A..[4B[7A...[7B" "$result"
@@ -741,13 +737,13 @@ test__asserting_exit_code() {
 
 createMockTestFile() {
   f="$TMP_TEST/test_test1.sh"
-  [[ -f $f ]] && f="$TMP_TEST/test_test2.sh"
-  echo "$@" >> $f
+  [[ -f "$f" ]] && f="$TMP_TEST/test_test2.sh"
+  echo "$@" >> "$f"
 }
 
 runMockTests() {
   clearEnvVars
-  cd $TMP_TEST; ../runTests.sh $@
+  cd $TMP_TEST; ../runTests.sh "$@"
 }
 
 

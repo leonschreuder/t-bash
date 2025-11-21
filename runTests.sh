@@ -129,24 +129,24 @@ resolveTestFiles() {
 # tests in file {{{1
 
 callTestsInFile() {
-  testDots=""
-  declare -i testCount=0 failingTestCount=0
-  declare -i PRINTED_LINE_COUNT_AFTER_DOTS
+  failingTestCount=0
 
-  #shellcheck disable=1090
-  source "$1"
-  checkHasTests
-  tryCallForFile "fileSetup"
+  # shellcheck disable=1090
+  . "$1"
+
+  testsFuncs="$(getTestFuncs)"
+  checkHasTests "$testsFuncs"
   initDotLine
+  linesUpToDotline=1
 
-  for currTestFunc in $(getTestFuncs); do
-    testDots+="."
-    testCount+=1 #increment the testCount each time, so we can use it to print progress dots
-    updateDotLine "$PRINTED_LINE_COUNT_AFTER_DOTS" "$testDots"
+  tryCallForFile "fileSetup"
+
+  for currTestFunc in $testsFuncs; do
+    testDots=$(incrementTestDots "$testDots")
+    updateDotLine "$linesUpToDotline" "$testDots"
     verboseEcho "  $currTestFunc"
 
     # run the test, tee the output in a temp file, and capture the exit code of the first command
-    local outFile
     outFile="$(mktemp)"
     if [ "$TIMED" = "true" ]; then
       # the {time;} is so the output of the time command is piped to tee as well
@@ -157,12 +157,12 @@ callTestsInFile() {
     fi
 
     if [ "$exitCode" -ne 0 ]; then
-      failingTestCount+=1
+      failingTestCount=$(( failingTestCount + 1 ))
       [ "$(cat "$outFile")" = "" ] &&
         failFromStackDepth "$currTestFunc" "Test failed without printing anything." | tee "$outFile" # tee also catches the exitWithError, so we continue with the file
     fi
 
-    countLinesMoved "$(cat "$outFile")"
+    linesUpToDotline="$(countLinesMoved "$outFile" "$linesUpToDotline")"
   done
 
   tryCallForFile "fileTeardown"
@@ -188,9 +188,10 @@ grepFunctionName() {
 }
 
 checkHasTests() {
-  if [ "$(getTestFuncs | wc -l)" -lt 1 ]; then
+  testsFuncs="$1"
+  if [ "$testsFuncs" = "" ] || [ "$(echo "$testsFuncs" | wc -l)" -lt 1 ]; then
     echo "no tests found"
-    exit 0
+    exit 0 # Don't fail, but also don't try to run anything
   fi
 }
 
@@ -223,9 +224,7 @@ tryCallForFile() {
 # We have to do some magic to print a dot for every test, but still print any test output correctly.
 initDotLine() {
   if [ "$VERBOSE" != true ] && [ "$T_QUIET" != true ]; then
-    echo "" # start with a blank line onto which we can print the dots.
-    # Tracks how many lines have been printed since the dot-line, so we know how many lines we have to go up to print more dots.
-    PRINTED_LINE_COUNT_AFTER_DOTS+=1
+    echo "" # print a blank line onto which we can print the dots and move one line down
   fi
 }
 
@@ -235,20 +234,27 @@ updateDotLine() {
   dotsString="$2"
   if [ "$VERBOSE" != true ] && [ "$T_QUIET" != true ]; then
     tput cuu "$linesUpToDotLine" # move the cursor up to the dot-line
-    echo -ne "\r" # go to the start of the line
-    echo -n "$dotsString" # print a dot for every test that has run, overwriting previous dots
+    printf "\r" # go to the start of the line
+    # echo -ne "\r" # go to the start of the line
+    printf "%s" "$dotsString" # print a dot for every test that has run, overwriting previous dots
     tput cud "$linesUpToDotLine" # move the cursor back down to where we where
-    echo -ne "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
+    printf "\r" # The cursor still has the horisontal position of the last dot. So go to the start of the line.
   fi
 }
 
-countLinesMoved() {
-  TEST_LINE_COUNT=$(echo -e "$@" | wc -l)
-  [[ -n "$*" ]] && PRINTED_LINE_COUNT_AFTER_DOTS+=$TEST_LINE_COUNT
+incrementTestDots() {
+  echo "$1."
 }
 
-countLinesMoved2() {
-  file="$1"
+countLinesMoved() {
+  outFile="$1"
+  previousLineCount="$2"
+  additionalLinesMoved="$(wc -l < "$outFile")"
+  if [ "$additionalLinesMoved" -gt 0 ]; then
+    echo "$(( previousLineCount + additionalLinesMoved ))"
+  else
+    echo "$previousLineCount"
+  fi
 }
 
 # Failing {{{1
@@ -281,29 +287,29 @@ formatAValueBValue() {
   valueB="$4"
   message="$5"
 
-  if [[ "$HIGHLIGHT_WHITESPACE" == "true" ]]; then
+  if [ "$HIGHLIGHT_WHITESPACE" = "true" ]; then
     valueA="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueA")"
     valueB="$(sed -e 's/\ /·/g' -e $'s/\t/▸ /g' -e 's/$/¬/' <<< "$valueB")"
   fi
 
-  [[ "$message" != "" ]] && echo "$message"
+  [ "$message" != "" ] && echo "$message"
 
-  if [[ "$EXTENDED_DIFF" == "true" ]]; then
+  if [ "$EXTENDED_DIFF" = "true" ]; then
     printExtendedDiff "$valueA" "$valueB"
   else
 
-    if [[ "$COLOR_OUTPUT" == "true" ]]; then
+    if [ "$COLOR_OUTPUT" = "true" ]; then
       valueA="$COLOR_GREEN$valueA$COLOR_NONE"
       valueB="$COLOR_RED$valueB$COLOR_NONE"
     fi
 
-    if [[ "$(echo "$valueA" | wc -l)" -gt 1 || "$(echo "$valueB" | wc -l)" -gt 1 ]]; then
+    if [ "$(echo "$valueA" | wc -l)" -gt 1 ] || [ "$(echo "$valueB" | wc -l)" -gt 1 ]; then
       # output has multiple lines
       echo "> $nameA"
       echo "$valueA"
       echo "> $nameB"
       echo "$valueB"
-    elif [[ "${#valueA}" -gt $maxSizeForInline || ${#valueB} -gt $maxSizeForInline ]]; then
+    elif [ "${#valueA}" -gt $maxSizeForInline ] || [ ${#valueB} -gt $maxSizeForInline ]; then
       # Not multiline, but enough output we should print values on seperate
       # lines. Indent to make visualy comparing easyer.
       width=$(getWithOfWidestString "$nameA" "$nameB")
@@ -335,21 +341,21 @@ funcExists() {
 }
 
 getWithOfWidestString() {
-    [[ ${#1} -gt ${#2} ]] && echo ${#1} || echo ${#2}
+    [ ${#1} -gt ${#2} ] && echo ${#1} || echo ${#2}
 }
 
 rightAlign() {
   declare -i leftIndent=$1-${#2}
-  [[ $leftIndent -gt 0 ]] && printf " %.0s" $(seq 1 $leftIndent)
+  [ $leftIndent -gt 0 ] && printf " %.0s" $(seq 1 $leftIndent)
   echo "$2"
 }
 
 verboseEcho() {
-  [[ "$VERBOSE" == true ]] && echo "$1"
+  [ "$VERBOSE" = true ] && echo "$1"
 }
 
 exitWithError() {
-  >&2 echo -e "ERROR: $*"
+  >&2 printf "ERROR: %s\n" "$*"
   exit 1
 }
 
@@ -362,14 +368,14 @@ runSelfUpdate() {
   echo "Downloading latest version..."
   curl $SELF_UPDATE_URL -o "$0.tmp"
   exitCode=$?
-  if [[ $exitCode != 0 ]]; then
+  if [ $exitCode != 0 ]; then
     exitWithError "Update failed: Error downloading."
   fi
 
   # Copy over modes from old version
   filePermissions=$(stat -c '%a' "$0" 2> /dev/null)
   exitCode=$?
-  if [[ $exitCode != 0 ]]; then
+  if [ $exitCode != 0 ]; then
     filePermissions=$(stat -f '%A' "$0")
   fi
   if ! chmod "$filePermissions" "$0.tmp" ; then
@@ -388,7 +394,7 @@ else
 fi
 EOF
 
-echo -n "Overwriting old version..."
+printf "Overwriting old version..."
 exec /bin/bash selfUpdateScript.sh
 }
 
@@ -496,7 +502,7 @@ assertExitCodeEquals() {
   #shellcheck disable=2053
   [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode != "$1" ]] &&
+  [ $exitCode != "$1" ] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code:" "$1" "got:" "$exitCode" "$2")"
 }
 
@@ -510,7 +516,7 @@ assertExitCodeNotEquals() {
   #shellcheck disable=2053
   [[ $1 != $re ]] &&
     failFromStackDepth 2 "Invalid expected exit code '$1'"
-  [[ $exitCode == "$1" ]] &&
+  [ $exitCode = "$1" ] &&
     failFromStackDepth 2 "$(formatAValueBValue "expected exit code to not be:" "$1" "but got:" "$exitCode" "$2")"
 }
 
@@ -523,7 +529,7 @@ fail() {
 
 # Main {{{1
 # Main entry point (excluded from tests)
-if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
+if [ "$0" = "${BASH_SOURCE[0]}" ]; then
   main "$@"
 fi
 # vim:fdm=marker
